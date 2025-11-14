@@ -15,3 +15,140 @@ PR을 통해 사전 검수를 거치므로, 최대한 오류가 없는 상태로
     `feature` 브랜치에 push 하지 않고, `fix` 브랜치에 push 하여 PR로 merge
 
 > 요약: **개발 작업은 항상 feature 브랜치 → PR → main merge 순서**로 진행합니다.
+
+
+# 프로젝트 구조
+
+```
+│  LICENSE
+│  pom.xml
+│  README.md
+│
+├─images
+│      default_profile.png
+│      pencil.png
+│      submit.png
+│
+├─src
+│  └─main
+│      ├─java
+│      │  └─com
+│      │      └─mbtidating
+│      │          │  ServerApplication.java
+│      │          │
+│      │          ├─config
+│      │          │      JwtUtil.java
+│      │          │      WebSocketConfig.java
+│      │          │
+│      │          ├─controller
+│      │          │      MatchController.java
+│      │          │      UserController.java
+│      │          │
+│      │          ├─dto
+│      │          │      Match.java
+│      │          │      User.java
+│      │          │
+│      │          ├─handler
+│      │          │      ChatSocketHandler.java
+│      │          │      CompositeMatchStrategy.java
+│      │          │      GenderFilterStrategy.java
+│      │          │      MatchQueueManager.java
+│      │          │      MatchSocketHandler.java
+│      │          │      MatchStrategy.java
+│      │          │      OppositeMBTIStrategy.java
+│      │          │
+│      │          ├─model
+│      │          │      LoginRequest.java
+│      │          │      SignupRequest.java
+│      │          │
+│      │          ├─network
+│      │          │      ApiClient.java
+│      │          │      WebSocketClient.java
+│      │          │
+│      │          ├─repository
+│      │          │      MatchRepository.java
+│      │          │      UserRepository.java
+│      │          │
+│      │          └─view
+│      │                  ChatView.java
+│      │                  HomeView.java
+│      │                  LoginView.java
+│      │                  MainApp.java
+│      │                  MatchWaitView.java
+│      │                  MBTIInformView.java
+│      │                  MyMBTIView.java
+│      │                  SignupView.java
+│      │
+│      └─resources
+│              application-messagedb.properties
+│              application-userdb.properties
+│              application.properties
+│
+└─target
+    └─classes
+        │  application-messagedb.properties
+        │  application-userdb.properties
+        │  application.properties
+        │
+        └─com
+            └─mbtidating
+                │  ServerApplication.class
+                │
+                ├─config
+                │      JwtUtil.class
+                │      WebSocketConfig.class
+                │
+                ├─controller
+                │      MatchController.class
+                │      UserController.class
+                │
+                ├─dto
+                │      Match$ChatMessage.class
+                │      Match$Participant.class
+                │      Match.class
+                │      User$Tokens.class
+                │      User.class
+                │
+                ├─handler
+                │      ChatSocketHandler.class
+                │      CompositeMatchStrategy.class
+                │      GenderFilterStrategy.class
+                │      MatchQueueManager.class
+                │      MatchSocketHandler.class
+                │      MatchStrategy.class
+                │      OppositeMBTIStrategy.class
+                │
+                ├─model
+                │      LoginRequest.class
+                │      SignupRequest.class
+                │
+                ├─network
+                │      ApiClient$HttpResult.class
+                │      ApiClient.class
+                │      WebSocketClient.class
+                │
+                ├─repository
+                │      MatchRepository.class
+                │      UserRepository.class
+                │
+                └─view
+                        ChatView$1.class
+                        ChatView.class
+                        HomeView$1.class
+                        HomeView$Bubble.class
+                        HomeView$BubbleArea$Msg.class
+                        HomeView$BubbleArea.class
+                        HomeView$InfoPanel.class
+                        HomeView$ProfileCard.class
+                        HomeView.class
+                        LoginView$1.class
+                        LoginView.class
+                        MainApp.class
+                        MatchWaitView.class
+                        MBTIInformView$1.class
+                        MBTIInformView.class
+                        MyMBTIView$1.class
+                        MyMBTIView.class
+                        SignupView$1.class
+                        SignupView.class
+```

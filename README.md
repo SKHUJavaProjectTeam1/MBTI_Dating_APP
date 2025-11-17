@@ -17,6 +17,12 @@ PR을 통해 사전 검수를 거치므로, 최대한 오류가 없는 상태로
 > 요약: **개발 작업은 항상 feature 브랜치 → PR → main merge 순서**로 진행합니다.
 
 
+#프로젝트 테스트 실행 순서
+
+1.serverApplication.java 
+2. view/MainApp.java
+
+
 # 프로젝트 구조
 
 ```

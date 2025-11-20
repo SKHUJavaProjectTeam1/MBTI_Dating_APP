@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/match")
 @RequiredArgsConstructor
@@ -17,13 +19,16 @@ public class MatchController {
     private final UserRepository userRepository;
 
     // 전략들을 조합
-    private final MatchStrategy matchStrategy = new CompositeMatchStrategy()
-            .add(new GenderFilterStrategy())      // 1️⃣ 성별이 다른 상대 먼저 탐색
-            .add(new OppositeMBTIStrategy());     // 2️⃣ MBTI 반대 성향 매칭
+    private final CompositeMatchStrategy matchStrategy =
+            new CompositeMatchStrategy()
+                    .add(new GenderScoreStrategy())
+                    .add(new MbtiScoreStrategy());
 
     @PostMapping
     public User match(@RequestBody Map<String, String> req) throws Exception {
+
         String userName = req.get("userName");
+        log.info("[MATCH REQUEST] 요청한 사용자 = {}", userName);
         User me = userRepository.findByUserName(userName)
                 .orElseThrow(() -> new Exception("사용자를 찾을 수 없습니다."));
 

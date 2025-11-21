@@ -144,10 +144,23 @@ public class HomeView extends JPanel {
 
     private JComponent recommendGrid() {
         JPanel grid = new JPanel(new GridLayout(2, 4, 16, 16));
-        for (int i = 0; i < 8; i++)
-            grid.add(new ProfileCard("카드 " + (i + 1)));
+
+        for (int i = 0; i < 8; i++) {
+            ProfileCard card = new ProfileCard();  // 카드 객체 생성
+            card.setProfile(
+                "유저" + (i + 1),
+                "INFP",
+                (i % 2 == 0 ? "남성" : "여성"),
+                20 + i,
+                "서울"
+            );
+            grid.add(card);  // 그리드에 추가
+        }
+
         return grid;
     }
+
+
 
     private JPanel chatPanel() {
         JPanel wrap = new JPanel(new BorderLayout());
@@ -247,25 +260,138 @@ public class HomeView extends JPanel {
         return label;
     }
 
-    // ====== 카드/채팅 말풍선 컴포넌트 ======
-    static class ProfileCard extends JPanel {
-        ProfileCard(String title) {
-            setOpaque(false);
-            setLayout(new BorderLayout());
-            setPreferredSize(new Dimension(150, 170));
-            JPanel rect = new JPanel();
-            rect.setPreferredSize(new Dimension(120, 110));
-            rect.setBackground(new Color(189, 255, 243));
-            rect.setBorder(new CompoundBorder(new LineBorder(new Color(200, 200, 200), 1, true),
-                    new EmptyBorder(6, 6, 6, 6)));
+    public static class ProfileCard extends JPanel {
 
-            JLabel titleLbl = new JLabel(title, SwingConstants.CENTER);
-            titleLbl.setBorder(new EmptyBorder(6, 0, 0, 0));
+	    private JLabel photoLabel;
+	    private JLabel mbtiLabel;
+	    private JLabel genderAgeLabel;
+	    private JLabel regionLabel;
+	    private JButton chatButton;
 
-            add(rect, BorderLayout.CENTER);
-            add(titleLbl, BorderLayout.SOUTH);
-        }
-    }
+	    public ProfileCard() {
+	    	
+	    	
+	        setLayout(new BorderLayout());
+	        setBackground(new Color(235, 255, 255));
+	        setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
+
+	        // 상단 사진
+	        photoLabel = new JLabel();
+	        photoLabel.setPreferredSize(new Dimension(120, 120));
+	        photoLabel.setHorizontalAlignment(JLabel.CENTER);
+	        photoLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+	        add(photoLabel, BorderLayout.NORTH);
+
+	        // 가운데 정보 패널
+	        JPanel infoPanel = new JPanel();
+	        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+	        infoPanel.setBackground(new Color(235, 255, 255));
+	        infoPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+
+	        mbtiLabel = new JLabel("MBTI: -");
+	        genderAgeLabel = new JLabel("성별/나이: -");
+	        regionLabel = new JLabel("지역: -");
+
+	        mbtiLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+	        genderAgeLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+	        regionLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+
+	        infoPanel.add(mbtiLabel);
+	        infoPanel.add(genderAgeLabel);
+	        infoPanel.add(regionLabel);
+	        add(infoPanel, BorderLayout.CENTER);
+
+	        // 하단 버튼
+	     // 하단 버튼
+	     // 하단 버튼
+	        chatButton = new JButton("채팅하기");
+	        chatButton.setFocusPainted(false);
+
+	        // 미니멀 기본 스타일
+	        chatButton.setOpaque(true);
+	        chatButton.setBorder(BorderFactory.createLineBorder(new Color(120, 210, 190), 2));
+	        chatButton.setBackground(Color.WHITE);
+	        chatButton.setForeground(new Color(120, 210, 190));  // 글자색
+	        chatButton.setFont(new Font("SansSerif", Font.BOLD, 13));
+
+	        add(chatButton, BorderLayout.SOUTH);
+
+	        // Hover 효과 (깔끔하게)
+	        chatButton.addMouseListener(new java.awt.event.MouseAdapter() {
+	            @Override
+	            public void mouseEntered(java.awt.event.MouseEvent e) {
+	                chatButton.setBackground(new Color(120, 210, 190));
+	                chatButton.setForeground(Color.WHITE);
+	            }
+
+	            @Override
+	            public void mouseExited(java.awt.event.MouseEvent e) {
+	                chatButton.setBackground(Color.WHITE);
+	                chatButton.setForeground(new Color(120, 210, 190));
+	            }
+	        });
+
+
+	        }
+
+	    
+	    public ProfileCard(String title) {
+	        this(); // 기본 생성자 먼저 호출됨
+
+	        // title을 쓰고 싶다면 아래처럼 label 추가 가능
+	        // JLabel titleLabel = new JLabel(title, JLabel.CENTER);
+	        // add(titleLabel, BorderLayout.NORTH);
+	    }
+	    
+	    public void setProfile(String userName, String mbti, String gender, Integer age, String region) {
+
+	        String genderAgeText = gender;
+	        if (age != null && age > 0) {
+	            genderAgeText += " / " + age;
+	        }
+
+	        mbtiLabel.setText("MBTI: " + mbti);
+	        genderAgeLabel.setText("성별/나이: " + genderAgeText);
+	        regionLabel.setText("지역: " + region);
+
+	        // ★★ 캐릭터 이미지를 리사이즈해서 넣기 ★★
+	        try {
+	            // 임시 캐릭터 번호 (원하면 DB에서 값 받아서 활용 가능)
+	        	int imgNum = 1;
+
+	        	String path = "/images/profile" + imgNum + ".png";
+
+	        	System.out.println("이미지 경로 확인 시도: " + path);
+	        	URL imgURL = getClass().getResource(path);
+	        	System.out.println("로드된 URL: " + imgURL);
+
+	        	if (imgURL != null) {
+	        	    ImageIcon origin = new ImageIcon(imgURL);
+	        	    Image scaled = origin.getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
+	        	    photoLabel.setIcon(new ImageIcon(scaled));
+	        	} else {
+	        	    System.out.println("❌ 이미지 로드 실패: " + path);
+	        	}
+
+	        } catch (Exception e) {
+	            System.out.println("이미지 처리 중 오류 발생");
+	            e.printStackTrace();
+	        }
+	    }
+
+
+
+
+
+	    // 데이터 설정 메서드
+	    public void setUserData(String mbti, String genderAge, String region, ImageIcon photo) {
+	        photoLabel.setIcon(photo);
+	        mbtiLabel.setText("MBTI: " + mbti);
+	        genderAgeLabel.setText("성별/나이: " + genderAge);
+	        regionLabel.setText("지역: " + region);
+	    }
+	}
+
 
     static class BubbleArea extends JPanel {
         static class Msg {

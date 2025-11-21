@@ -37,7 +37,7 @@ public class MatchWaitView extends JPanel {
 
                 SwingUtilities.invokeLater(() -> {
                     ChatView chatView = mainApp.getChatView();
-                    
+                    //추가된 부분
                     mainApp.setCurrentRoomId(roomId);
                     mainApp.setCurrentUserId(self);
                     

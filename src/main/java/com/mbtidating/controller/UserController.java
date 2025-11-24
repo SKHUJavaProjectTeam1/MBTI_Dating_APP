@@ -94,14 +94,12 @@ public class UserController {
  // 🔹 프로필 수정 API
     @PutMapping("/{id}")
     public User updateProfile(
-            @PathVariable("id") String id,   // 로그인용 id 기준이라고 가정
+            @PathVariable("id") String id,   // 여기 id = 로그인 아이디 (userName과 동일하다고 가정)
             @RequestBody UserUpdateRequest req) {
 
-        // ⚠ 여기서 findById는 "로그인용 id" 기준으로 찾는 메소드여야 해
-        // _id(ObjectId) 기준이면, 레포지토리에서 따로 메소드 만들어야 함.
-        User user = userRepository.findById(id)
-        		.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
-
+        // ✅ 로그인 아이디(userName) 기준으로 유저 찾기
+        User user = userRepository.findByUserName(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
 
         user.setGender(req.getGender());
         user.setAge(req.getAge());

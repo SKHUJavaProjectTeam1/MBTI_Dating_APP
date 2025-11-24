@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 //import org.glassfish.grizzly.http.util.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,8 +26,8 @@ import com.mbtidating.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 
 
@@ -35,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping
     public List<User> list() {
@@ -46,7 +49,12 @@ public class UserController {
         User user = new User();
         user.setId(userEdit.getUserName());
         user.setUserName(userEdit.getUserName());
-        user.setPwd(userEdit.getPwd());
+
+        // ✅ 비밀번호 해싱해서 저장
+        String rawPassword = userEdit.getPwd();
+        String hashedPassword = passwordEncoder.encode(rawPassword);
+        user.setPwd(hashedPassword);
+
         user.setGender(userEdit.getGender());
         user.setAge(userEdit.getAge());
 
@@ -71,13 +79,20 @@ public class UserController {
         return userRepository.save(user);
     }
 
-    @PostMapping("/login")
-    public User login(@RequestBody LoginRequest req) throws Exception {
-        User user = userRepository.findByUserName(req.getUserName())
-                .filter(u -> u.getPwd() != null && u.getPwd().equals(req.getPwd()))
-                .orElseThrow(() -> new Exception("아이디 또는 비밀번호가 올바르지 않습니다."));
 
-        String accessToken = JwtUtil.generateToken(user.getUserName());
+    @PostMapping("/login")
+    public User login(@RequestBody LoginRequest req) {
+
+        User user = userRepository.findByUserName(req.getUserName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
+
+        if (user.getPwd() == null ||
+            !passwordEncoder.matches(req.getPwd(), user.getPwd())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        String accessToken  = JwtUtil.generateToken(user.getUserName());
         String refreshToken = JwtUtil.generateToken(user.getUserName() + "_refresh");
 
         User.Tokens tokens = new User.Tokens();
@@ -90,6 +105,7 @@ public class UserController {
 
         return user;
     }
+
     
  // 🔹 프로필 수정 API
     @PutMapping("/{id}")

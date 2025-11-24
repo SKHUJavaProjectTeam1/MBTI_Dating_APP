@@ -1,11 +1,35 @@
 package com.mbtidating.view;
 
-import com.mbtidating.network.ApiClient;
-import com.mbtidating.network.ApiClient.HttpResult;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.util.HashMap;
+import java.util.Map;
 
-import javax.swing.*;
-import javax.swing.border.*;
-import java.awt.*;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JTextField;
+import javax.swing.border.Border;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.border.MatteBorder;
+
+import com.mbtidating.dto.User;
+import com.mbtidating.network.ApiClient;
 
 public class LoginView extends JPanel {
 
@@ -99,8 +123,12 @@ public class LoginView extends JPanel {
                     JOptionPane.showMessageDialog(this, "로그인 응답에 토큰이 없습니다.");
                     return;
                 }
-
+                // 토큰 저장
                 mainApp.setJwtToken(token);
+
+             // 🔹 응답 JSON에서 User 정보 파싱해서 MainApp에 저장
+                User user = parseUser(res.body);
+                mainApp.setLoggedInUser(user);
 
                 JOptionPane.showMessageDialog(this, "로그인 성공!");
                 mainApp.showView(MainApp.HOME);
@@ -125,6 +153,60 @@ public class LoginView extends JPanel {
             return body.substring(start, end);
         }
         return "";
+    }
+    
+ // 🔹 로그인 응답(JSON)에서 id / gender / age / mbti 추출해서 User 객체 생성
+    private User parseUser(String body) {
+        User u = new User();
+
+        u.setId(extractJsonString(body, "\"id\":\""));
+        u.setGender(extractJsonString(body, "\"gender\":\""));
+        u.setAge(extractJsonInt(body, "\"age\":"));
+
+        Map<String, String> mbtiMap = new HashMap<>();
+        String ei = extractJsonString(body, "\"EI\":\"");
+        String sn = extractJsonString(body, "\"SN\":\"");
+        String tf = extractJsonString(body, "\"TF\":\"");
+        String jp = extractJsonString(body, "\"JP\":\"");
+
+        if (!ei.isEmpty()) mbtiMap.put("EI", ei);
+        if (!sn.isEmpty()) mbtiMap.put("SN", sn);
+        if (!tf.isEmpty()) mbtiMap.put("TF", tf);
+        if (!jp.isEmpty()) mbtiMap.put("JP", jp);
+
+        if (!mbtiMap.isEmpty()) {
+            u.setMbti(mbtiMap);
+        }
+
+        return u;
+    }
+
+    private String extractJsonString(String body, String keyPattern) {
+        int start = body.indexOf(keyPattern);
+        if (start < 0) return "";
+        start += keyPattern.length();
+        int end = body.indexOf("\"", start);
+        if (end < 0) return "";
+        return body.substring(start, end);
+    }
+
+    private Integer extractJsonInt(String body, String keyPattern) {
+        int start = body.indexOf(keyPattern);
+        if (start < 0) return null;
+        start += keyPattern.length();
+        while (start < body.length() && Character.isWhitespace(body.charAt(start))) {
+            start++;
+        }
+        int end = start;
+        while (end < body.length() && Character.isDigit(body.charAt(end))) {
+            end++;
+        }
+        if (end == start) return null;
+        try {
+            return Integer.parseInt(body.substring(start, end));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ----- UI 헬퍼 -----

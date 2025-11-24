@@ -2,6 +2,7 @@ package com.mbtidating.view;
 
 import javax.swing.*;
 import java.awt.*;
+import com.mbtidating.dto.User;
 
 public class MainApp extends JFrame {
 
@@ -16,6 +17,8 @@ public class MainApp extends JFrame {
     public static final String MYMBTI = "myMbti";
     public static final String MATCH_WAIT = "matchWait";
     public static final String CHAT = "chat";
+    private User loggedInUser;
+
 
     // View 인스턴스
     private final LoginView loginView;
@@ -72,6 +75,17 @@ public class MainApp extends JFrame {
 
     public void setJwtToken(String token) { this.jwtToken = token; }
     public String getJwtToken() { return jwtToken; }
+
+    public void setLoggedInUser(User user) {
+        this.loggedInUser = user;
+        if (homeView != null) {
+            homeView.updateUserInfo(user);
+        }
+    }
+    
+    public User getLoggedInUser() {
+        return loggedInUser;
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new MainApp().setVisible(true));

@@ -4,19 +4,30 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 
+//import org.glassfish.grizzly.http.util.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import com.mbtidating.config.JwtUtil;
 import com.mbtidating.dto.User;
+import com.mbtidating.dto.UserUpdateRequest;
 import com.mbtidating.model.LoginRequest;
 import com.mbtidating.model.SignupRequest;
 import com.mbtidating.repository.UserRepository;
-import com.mbtidating.config.JwtUtil;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+
 
 @RestController
 @RequestMapping("/api/users")
@@ -78,5 +89,24 @@ public class UserController {
         userRepository.save(user);
 
         return user;
+    }
+    
+ // 🔹 프로필 수정 API
+    @PutMapping("/{id}")
+    public User updateProfile(
+            @PathVariable("id") String id,   // 로그인용 id 기준이라고 가정
+            @RequestBody UserUpdateRequest req) {
+
+        // ⚠ 여기서 findById는 "로그인용 id" 기준으로 찾는 메소드여야 해
+        // _id(ObjectId) 기준이면, 레포지토리에서 따로 메소드 만들어야 함.
+        User user = userRepository.findById(id)
+        		.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
+
+
+        user.setGender(req.getGender());
+        user.setAge(req.getAge());
+        user.setMbti(req.getMbti());
+
+        return userRepository.save(user);
     }
 }

@@ -28,6 +28,9 @@ public class MainApp extends JFrame {
     private final MyMBTIView myMbtiView;
     private final MatchWaitView matchWaitView;
     private final ChatView chatView;
+    
+    // 매칭 완료 여부
+    private boolean matched = false;
 
     // JWT 토큰 저장용
     private String jwtToken;
@@ -86,8 +89,17 @@ public class MainApp extends JFrame {
     public User getLoggedInUser() {
         return loggedInUser;
     }
+    
+    public boolean hasMatched() {
+        return matched;
+    }
+
+    public void setMatched(boolean matched) {
+        this.matched = matched;
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new MainApp().setVisible(true));
     }
+
 }

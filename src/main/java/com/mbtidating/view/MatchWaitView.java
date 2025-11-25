@@ -36,6 +36,8 @@ public class MatchWaitView extends JPanel {
                 System.out.println("[MATCH] 매칭 성공: " + roomId + " / " + partner + " / " + self);
 
                 SwingUtilities.invokeLater(() -> {
+                	mainApp.setMatched(true);
+                	
                     ChatView chatView = mainApp.getChatView();
                     chatView.startChat(roomId, self); // ✅ 하드코딩 금지
                     mainApp.showView(MainApp.CHAT);

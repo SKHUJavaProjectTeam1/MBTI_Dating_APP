@@ -111,14 +111,19 @@ public class HomeView extends JPanel {
         btnGuide.addActionListener(e -> mainApp.showView(MainApp.MBTI_INFO));
         btnMyMBTI.addActionListener(e -> mainApp.showView(MainApp.MYMBTI));
         btnChat.addActionListener(e -> {
-            mainApp.showView(MainApp.CHAT);
             String token = mainApp.getJwtToken();
             if (token == null || token.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "로그인이 필요합니다.");
                 mainApp.showView(MainApp.LOGIN);
                 return;
             }
-            mainApp.getChatView().startChat("상대방", token);
+            
+            if (!mainApp.hasMatched()) {
+                JOptionPane.showMessageDialog(this, "매칭하기를 통해 대화를 시작하세요.");
+                return;
+            }
+            
+            mainApp.showView(MainApp.CHAT);
         });
 
         btnMatch.addActionListener(e -> {

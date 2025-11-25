@@ -49,6 +49,8 @@ import javax.swing.border.MatteBorder;
 
 import com.mbtidating.dto.User;
 import com.mbtidating.network.ApiClient;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class HomeView extends JPanel {
 
@@ -112,19 +114,50 @@ public class HomeView extends JPanel {
         btnMyMBTI.addActionListener(e -> mainApp.showView(MainApp.MYMBTI));
         btnChat.addActionListener(e -> {
             String token = mainApp.getJwtToken();
+            String userId = mainApp.getLoggedInUserId();   // ← 중요: 반드시 이게 있어야 한다
+
             if (token == null || token.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "로그인이 필요합니다.");
                 mainApp.showView(MainApp.LOGIN);
                 return;
             }
-            
-            if (!mainApp.hasMatched()) {
+
+            try {
+                // 1) DB에서 이 유저가 속한 채팅방 목록 조회
+                ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + userId);
+
+                if (!res.isOk()) {
+                    JOptionPane.showMessageDialog(this, "서버 연결 오류");
+                    return;
+                }
+
+                JSONArray arr = new JSONArray(res.body);
+
+                // ---------------------------
+                // ❗ 방이 하나라도 있으면 그 방으로 이동
+                // ---------------------------
+                if (arr.length() > 0) {
+                    JSONObject room = arr.getJSONObject(0);
+                    String roomId = room.getString("roomId");
+
+                    ChatView chatView = mainApp.getChatView();
+                    chatView.startChat(roomId, userId);
+
+                    mainApp.showView(MainApp.CHAT);
+                    return;
+                }
+
+                // ---------------------------
+                // ❗ 방이 없을 때만 "매칭 먼저 하세요" 표시
+                // ---------------------------
                 JOptionPane.showMessageDialog(this, "매칭하기를 통해 대화를 시작하세요.");
-                return;
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "채팅방 불러오기 오류");
             }
-            
-            mainApp.showView(MainApp.CHAT);
         });
+
 
         btnMatch.addActionListener(e -> {
             mainApp.showView(MainApp.MATCH_WAIT);

@@ -17,8 +17,9 @@ public class MainApp extends JFrame {
     public static final String MYMBTI = "myMbti";
     public static final String MATCH_WAIT = "matchWait";
     public static final String CHAT = "chat";
-    private User loggedInUser;
 
+    // 로그인된 사용자 정보
+    private User loggedInUser;
 
     // View 인스턴스
     private final LoginView loginView;
@@ -28,11 +29,11 @@ public class MainApp extends JFrame {
     private final MyMBTIView myMbtiView;
     private final MatchWaitView matchWaitView;
     private final ChatView chatView;
-    
-    // 매칭 완료 여부
+
+    // 매칭 여부
     private boolean matched = false;
 
-    // JWT 토큰 저장용
+    // JWT 저장
     private String jwtToken;
 
     public MainApp() {
@@ -64,7 +65,7 @@ public class MainApp extends JFrame {
         showView(LOGIN);
     }
 
-    // ===== 뷰 전환 메서드 =====
+    // ===== 뷰 전환 =====
     public void showView(String key) {
         cardLayout.show(cardPanel, key);
         cardPanel.revalidate();
@@ -81,25 +82,27 @@ public class MainApp extends JFrame {
 
     public void setLoggedInUser(User user) {
         this.loggedInUser = user;
-        if (homeView != null) {
-            homeView.updateUserInfo(user);
-        }
+        if (homeView != null) homeView.updateUserInfo(user);
     }
-    
+
     public User getLoggedInUser() {
         return loggedInUser;
     }
-    
-    public boolean hasMatched() {
-        return matched;
+
+    // ★★★ HomeView에서 반드시 필요했던 메서드 추가 ★★★
+    public String getLoggedInUserName() {
+        return (loggedInUser != null) ? loggedInUser.getId() : null;
+    }
+    public String getLoggedInUserId() {
+        return (loggedInUser != null) ? loggedInUser.getId() : null;
     }
 
-    public void setMatched(boolean matched) {
-        this.matched = matched;
-    }
+
+
+    public boolean hasMatched() { return matched; }
+    public void setMatched(boolean matched) { this.matched = matched; }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new MainApp().setVisible(true));
     }
-
 }

@@ -1,69 +1,93 @@
 package com.mbtidating.handler;
 
+import com.mbtidating.config.JwtUtil;
 import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import org.springframework.stereotype.Component;
-import com.mbtidating.config.JwtUtil; // JWT 유틸 가져오기
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Queue;
+import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Component
 @ServerEndpoint("/ws/match/{token}")
 public class MatchSocketHandler {
 
-    private static final Queue<Session> waitingQueue = new ConcurrentLinkedQueue<>();
-    private static final Map<Session, String> userMap = new HashMap<>();
+    private static final Set<String> waitingUsers = ConcurrentHashMap.newKeySet();
+    private static final Queue<Session> queue = new ConcurrentLinkedQueue<>();
 
     @OnOpen
-    public void onOpen(Session session, @PathParam("token") String token) {
-        String user = JwtUtil.validateToken(token);
-        userMap.put(session, user);
-        System.out.println("[WS] 연결됨: " + user);
-    }
+    public void onOpen(Session session, @PathParam("token") String token) throws IOException {
 
-    @OnMessage
-    public void onMessage(String msg, Session session) {
-        System.out.println("[WS] 받은 메시지: " + msg);
-        if (msg.contains("enqueue")) {
-            waitingQueue.add(session);
-            checkForMatch();
+        String username = JwtUtil.validateToken(token);
+
+        if (username == null) {
+            session.close();
+            return;
         }
-    }
 
-    private void checkForMatch() {
-        if (waitingQueue.size() >= 2) {
-            Session s1 = waitingQueue.poll();
-            Session s2 = waitingQueue.poll();
-            String user1 = userMap.get(s1);
-            String user2 = userMap.get(s2);
-
-            String roomId = UUID.randomUUID().toString().substring(0, 8);
-            sendMessage(s1, "{\"type\":\"match_found\",\"roomId\":\"" + roomId + "\",\"partner\":\"" + user2 + "\",\"self\":\"" + user1 + "\"}");
-            sendMessage(s2, "{\"type\":\"match_found\",\"roomId\":\"" + roomId + "\",\"partner\":\"" + user1 + "\",\"self\":\"" + user2 + "\"}");
-            System.out.println("💘 매칭 완료! Room ID: " + roomId + " / " + user1 + " ↔ " + user2);
+        // 중복 진입 방지
+        if (!waitingUsers.add(username)) {
+            System.out.println("[MATCH] 이미 대기중이므로 거절 → " + username);
+            session.close();
+            return;
         }
+
+        session.getUserProperties().put("username", username);
+
+        queue.add(session);
+        System.out.println("[MATCH] 새 요청 → " + username);
+
+        tryMatch();
     }
 
-    private void sendMessage(Session s, String msg) {
-        try {
-            if (s.isOpen()) s.getBasicRemote().sendText(msg);
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void tryMatch() throws IOException {
+        if (queue.size() < 2) return;
+
+        Session s1 = queue.poll();
+        Session s2 = queue.poll();
+
+        if (s1 == null || s2 == null) return;
+
+        String u1 = (String) s1.getUserProperties().get("username");
+        String u2 = (String) s2.getUserProperties().get("username");
+
+        // 대기열에서 제거
+        waitingUsers.remove(u1);
+        waitingUsers.remove(u2);
+
+        String roomId = UUID.randomUUID().toString();
+
+        System.out.println("[MATCH] 매칭 완료 → room=" + roomId + " / " + u1 + " - " + u2);
+
+        send(s1, String.format(
+                "{\"type\":\"match_found\",\"roomId\":\"%s\",\"partner\":\"%s\",\"self\":\"%s\"}",
+                roomId, u2, u1));
+
+        send(s2, String.format(
+                "{\"type\":\"match_found\",\"roomId\":\"%s\",\"partner\":\"%s\",\"self\":\"%s\"}",
+                roomId, u1, u2));
+
+        s1.close();
+        s2.close();
+    }
+
+    private void send(Session s, String msg) throws IOException {
+        if (s.isOpen()) {
+            synchronized (s) {
+                s.getBasicRemote().sendText(msg);
+            }
         }
     }
 
     @OnClose
-    public void onClose(Session session, CloseReason reason) {
-        waitingQueue.remove(session);
-        userMap.remove(session);
-        System.out.println("[WS] 종료됨: " + reason);
-    }
-
-    @OnError
-    public void onError(Session session, Throwable throwable) {
-        System.err.println("[WS] 오류: " + throwable.getMessage());
+    public void onClose(Session session) {
+        String username = (String) session.getUserProperties().get("username");
+        waitingUsers.remove(username);
+        queue.remove(session);
     }
 }

@@ -1,134 +1,128 @@
 package com.mbtidating.handler;
 
-import com.mbtidating.dto.Match;
-import com.mbtidating.repository.MatchRepository;
+import com.mbtidating.repository.ChatRoomRepository;
 import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
+import com.mbtidating.dto.ChatRoom;
 import java.io.IOException;
-import java.time.Instant;
-import java.util.*;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @ServerEndpoint("/ws/chat/{roomId}/{user}")
 public class ChatSocketHandler {
 
-    private static MatchRepository staticRepo;
+    private static ChatRoomRepository roomRepo;
+
     @Autowired
-    public void setRepo(MatchRepository repo) {
-        ChatSocketHandler.staticRepo = repo;
+    public void setChatRoomRepository(ChatRoomRepository repo) {
+        ChatSocketHandler.roomRepo = repo;
     }
 
     private static final Map<String, Map<String, Session>> rooms = new ConcurrentHashMap<>();
 
+
+    // --- 공통 유틸 ---
+    private void safeSend(Session s, String msg) throws IOException {
+        synchronized (s) {
+            if (s.isOpen()) s.getBasicRemote().sendText(msg);
+        }
+    }
+
+    private void broadcast(String roomId, String msg) {
+        var room = rooms.get(roomId);
+        if (room == null) return;
+
+        for (Session s : room.values()) {
+            try {
+                safeSend(s, msg);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private ChatRoom getOrCreateRoom(String roomId) {
+        return roomRepo.findById(roomId).orElseGet(() -> {
+            ChatRoom room = new ChatRoom();
+            room.setRoomId(roomId);
+            return roomRepo.save(room);
+        });
+    }
+
+    private void saveMessage(String roomId, String sender, String message) {
+        ChatRoom room = getOrCreateRoom(roomId);
+        room.getChatHistory().add(new ChatRoom.Message(sender, message));
+        roomRepo.save(room);
+    }
+
+
+    // --- 참여자 등록 ---
+    private void addParticipant(String roomId, String user) {
+        ChatRoom room = getOrCreateRoom(roomId);
+
+        boolean exists = room.getParticipants().stream()
+                .anyMatch(p -> p.getUserId().equals(user));
+
+        if (!exists) {
+            room.getParticipants().add(new ChatRoom.Participant(user));
+            roomRepo.save(room);
+        }
+    }
+
+
+    // --- WebSocket Events ---
     @OnOpen
     public void onOpen(Session session,
                        @PathParam("roomId") String roomId,
-                       @PathParam("user") String user) {
+                       @PathParam("user") String user) throws IOException {
 
         rooms.putIfAbsent(roomId, new ConcurrentHashMap<>());
-        Map<String, Session> room = rooms.get(roomId);
+        rooms.get(roomId).put(user, session);
 
-        // 기존 세션 닫기
-        Session old = room.get(user);
-        if (old != null && old.isOpen()) try { old.close(); } catch (IOException ignored) {}
+        addParticipant(roomId, user);
 
-        room.put(user, session);
-        System.out.println("💬 연결됨 [" + roomId + "] " + user);
-
-        // ✅ DB에서 이전 대화 불러오기
-        staticRepo.findByMatchId(roomId).ifPresentOrElse(
-                match -> sendHistory(session, match),
-                () -> createMatchRecord(roomId, user)
-        );
-
-        broadcast(roomId, "🔔 " + user + " 님이 입장했습니다.", user);
+        broadcast(roomId, "🔔 " + user + " 님이 입장했습니다.");
+        System.out.println("[CHAT] 입장: " + roomId + " / " + user);
     }
 
     @OnMessage
     public void onMessage(String msg,
                           @PathParam("roomId") String roomId,
-                          @PathParam("user") String user) {
+                          @PathParam("user") String user) throws IOException {
 
-        if (msg.trim().startsWith("{") && msg.contains("\"type\":\"enqueue\"")) {
-            // 무시 (로그만 남김)
-            System.out.println("⚙️ [" + roomId + "] " + user + ": enqueue 메시지 무시");
-            return;
-        }
+        saveMessage(roomId, user, msg);
 
-        System.out.println("📩 [" + roomId + "] " + user + ": " + msg);
-
-        Match match = staticRepo.findByMatchId(roomId)
-                .orElseGet(() -> createMatchRecord(roomId, user));
-
-        Match.ChatMessage chatMsg = new Match.ChatMessage(user, msg);
-        match.getChatHistory().add(chatMsg);
-        staticRepo.save(match);
-
-        broadcast(roomId, user + ": " + msg, user);
+        String fullMsg = user + ": " + msg;
+        broadcast(roomId, fullMsg);
     }
-
 
     @OnClose
     public void onClose(Session session,
                         @PathParam("roomId") String roomId,
                         @PathParam("user") String user) {
 
-        Map<String, Session> room = rooms.get(roomId);
-        if (room != null) room.remove(user);
+        var room = rooms.get(roomId);
+        if (room != null) {
+            room.remove(user);
+        }
 
-        broadcast(roomId, "❌ " + user + " 님이 퇴장했습니다.", user);
+        new Thread(() -> {
+            try {
+                Thread.sleep(50);
+                broadcast(roomId, "❌ " + user + " 님이 퇴장했습니다.");
+            } catch (Exception ignored) {}
+        }).start();
+
+        System.out.println("[CHAT] 퇴장: " + user);
     }
 
     @OnError
-    public void onError(Session session, Throwable throwable) {
-        System.err.println("⚠️ 채팅 오류: " + throwable.getMessage());
-    }
-
-    private void broadcast(String roomId, String msg, String sender) {
-        Map<String, Session> room = rooms.get(roomId);
-        if (room == null) return;
-
-        Iterator<Map.Entry<String, Session>> it = room.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, Session> entry = it.next();
-            String user = entry.getKey();
-            Session s = entry.getValue();
-            try {
-                if (s.isOpen() && !user.equals(sender)) {
-                    synchronized (s) { s.getBasicRemote().sendText(msg); }
-                } else if (!s.isOpen()) {
-                    it.remove();
-                }
-            } catch (IOException e) {
-                it.remove();
-            }
-        }
-    }
-
-    private void sendHistory(Session session, Match match) {
-        try {
-            session.getBasicRemote().sendText("📜 [이전 대화 기록]");
-            for (Match.ChatMessage msg : match.getChatHistory()) {
-                session.getBasicRemote().sendText(
-                        msg.getSenderId() + ": " + msg.getMessage()
-                );
-            }
-            session.getBasicRemote().sendText("📜 [대화 기록 끝]");
-        } catch (IOException e) {
-            System.err.println("⚠️ 히스토리 전송 오류: " + e.getMessage());
-        }
-    }
-
-    private Match createMatchRecord(String roomId, String user) {
-        Match m = new Match();
-        m.setMatchId(roomId);
-        m.getParticipants().add(new Match.Participant(user));
-        m.setMatchedAt(Instant.now());
-        return staticRepo.save(m);
+    public void onError(Session session, Throwable t) {
+        t.printStackTrace();
     }
 }
+

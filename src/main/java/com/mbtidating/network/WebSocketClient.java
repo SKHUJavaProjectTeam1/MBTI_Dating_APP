@@ -7,12 +7,10 @@ import java.util.function.Consumer;
 
 @ClientEndpoint
 public class WebSocketClient {
-	
-	public enum Type {
-	    MATCH, CHAT
-	}
 
-	private Type type;
+    public enum Type { MATCH, CHAT }
+
+    private Type type;
     private Session session;
     private final String endpointUrl;
     private final String token;
@@ -23,11 +21,11 @@ public class WebSocketClient {
         this.token = token;
         this.type = type;
     }
-    
+
     public WebSocketClient(String endpointUrl, String token) {
         this(endpointUrl, token, Type.MATCH);
     }
-    
+
     public void onMessage(Consumer<String> handler) {
         this.messageHandler = handler;
     }
@@ -35,7 +33,8 @@ public class WebSocketClient {
     public void connect() {
         try {
             WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-            container.connectToServer(this, URI.create(endpointUrl + "?token=" + token));
+            // ❗ Query param 제거
+            container.connectToServer(this, URI.create(endpointUrl));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -46,24 +45,13 @@ public class WebSocketClient {
         this.session = session;
         System.out.println("[CLIENT] Connected to " + endpointUrl);
 
-        switch (type) {
-            case MATCH:
-                send("{\"type\":\"enqueue\"}");
-                break;
-            case CHAT:
-                // 초기 메시지 없음
-                break;
-            default:
-                System.err.println("[CLIENT] Warning: 알 수 없는 WebSocket 타입: " + type);
-        }
+        // ❗ enqueue 자동 전송 완전 제거
     }
 
     @OnMessage
     public void onMessage(String message) {
         System.out.println("[CLIENT] Message: " + message);
-        if (messageHandler != null) {
-            messageHandler.accept(message);
-        }
+        if (messageHandler != null) messageHandler.accept(message);
     }
 
     @OnClose
@@ -90,10 +78,12 @@ public class WebSocketClient {
         }
     }
 
-
     public void close() {
         try {
-            if (session != null) session.close();
+            if (session != null) {
+                session.close();
+                session = null;  // ❗ 필수
+            }
             System.out.println("[CLIENT] Connection closed manually.");
         } catch (Exception ignored) {}
     }

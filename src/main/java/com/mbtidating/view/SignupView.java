@@ -19,6 +19,7 @@ public class SignupView extends JPanel {
     private final JButton sideSignup = new JButton("회원가입");
 
     private final JTextField tfId = new JTextField(20);
+    private final JTextField tfUserName = new JTextField(20);
     private final JPasswordField tfPw = new JPasswordField(20);
     private final JComboBox<String> cbMBTI = new JComboBox<>(MBTI_ALL);
     private final JRadioButton rbF = new JRadioButton("여");
@@ -65,6 +66,7 @@ public class SignupView extends JPanel {
         p.add(Box.createVerticalStrut(20));
 
         p.add(row("아이디", tfId));
+        p.add(row("닉네임", tfUserName));
         p.add(row("비밀번호", tfPw));
         p.add(row("MBTI", cbMBTI));
 
@@ -88,19 +90,20 @@ public class SignupView extends JPanel {
 
     private void doSignup() {
         String id = tfId.getText().trim();
+        String userName = tfUserName.getText().trim();
         String pw = new String(tfPw.getPassword());
         String mbti = (String) cbMBTI.getSelectedItem();
         String genderVal = rbF.isSelected() ? "f" : rbM.isSelected() ? "m" : rbO.isSelected() ? "o" : "";
         int age = (Integer) spAge.getValue();
 
-        if (id.isEmpty() || pw.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "아이디와 비밀번호를 입력하세요.");
+        if (id.isEmpty() || userName.isEmpty() || pw.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "아이디, 닉네임, 비밀번호를 입력하세요.");
             return;
         }
 
         String json = String.format(
-                "{\"userName\":\"%s\",\"pwd\":\"%s\",\"gender\":\"%s\",\"age\":%d,\"mbti\":\"%s\"}",
-                escape(id), escape(pw), genderVal, age, escape(mbti)
+                "{\"id\":\"%s\",\"userName\":\"%s\",\"pwd\":\"%s\",\"gender\":\"%s\",\"age\":%d,\"mbti\":\"%s\"}",
+                escape(id), escape(userName), escape(pw), genderVal, age, escape(mbti)
         );
 
         try {
@@ -108,7 +111,13 @@ public class SignupView extends JPanel {
             if (res.isOk()) {
                 JOptionPane.showMessageDialog(this, "회원가입 성공! 로그인 화면으로 이동합니다.");
                 mainApp.showView(MainApp.LOGIN);
-            } else {
+            } else if (res.code == 409) {
+                // ★ 서버에서 409(중복) 보내줄 때 메시지 보여주기 (ResponseStatusException 메시지)
+                JOptionPane.showMessageDialog(this,
+                        "회원가입 실패: " + res.body);
+            } 
+            
+            else {
                 JOptionPane.showMessageDialog(this, "회원가입 실패 (" + res.code + ")");
             }
         } catch (Exception ex) {

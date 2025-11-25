@@ -1,10 +1,16 @@
 package com.mbtidating.repository;
 
-import com.mbtidating.dto.User;
-import org.springframework.data.mongodb.repository.MongoRepository;
-
 import java.util.Optional;
 
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+
+import com.mbtidating.dto.User;
+
 public interface UserRepository extends MongoRepository<User, String> {
-	Optional<User> findByUserName(String userName); // 로그인용
+
+    @Query("{ 'id' : ?0 }")
+    Optional<User> findByLoginId(String id);
+
+    Optional<User> findByUserName(String userName);
 }

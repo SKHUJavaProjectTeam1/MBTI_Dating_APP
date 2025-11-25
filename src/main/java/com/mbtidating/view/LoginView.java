@@ -111,7 +111,7 @@ public class LoginView extends JPanel {
         }
 
         // JSON 생성
-        String json = "{\"userName\":\"" + escape(id) + "\",\"pwd\":\"" + escape(pw) + "\"}";
+        String json = "{\"id\":\"" + escape(id) + "\",\"pwd\":\"" + escape(pw) + "\"}";
 
         try {
             ApiClient.HttpResult res = ApiClient.postJson("http://localhost:8080/api/users/login", json);

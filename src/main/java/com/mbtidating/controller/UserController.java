@@ -133,10 +133,10 @@ public class UserController {
     }
 
 
-    // 🔹 프로필 수정 (HomeView.ProfileEditDialog에서 호출)
+ // 🔹 프로필 수정 (HomeView.ProfileEditDialog에서 호출)
     @PutMapping("/{id}")
     public User updateProfile(
-            @PathVariable("id") String id,   // 여기 id = 로그인 아이디 (User.id)
+            @PathVariable("id") String id,
             @RequestBody UserUpdateRequest req) {
 
         // ✅ 로그인 아이디 기준으로 유저 찾기
@@ -144,10 +144,19 @@ public class UserController {
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
 
+        // 닉네임(userName) 업데이트
+        if (req.getUserName() != null && !req.getUserName().isBlank()) {
+            user.setUserName(req.getUserName());
+        }
+
         user.setGender(req.getGender());
         user.setAge(req.getAge());
-        user.setMbti(req.getMbti());
+
+        if (req.getMbti() != null) {   // NPE 방지용
+            user.setMbti(req.getMbti());
+        }
 
         return userRepository.save(user);
     }
+
 }

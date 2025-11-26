@@ -6,6 +6,9 @@ import com.mbtidating.network.ApiClient.HttpResult;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.util.regex.Pattern;
 
 public class SignupView extends JPanel {
 
@@ -18,6 +21,7 @@ public class SignupView extends JPanel {
     private final JButton sideLogin = new JButton("로그인");
     private final JButton sideSignup = new JButton("회원가입");
 
+    // 입력 필드
     private final JTextField tfId = new JTextField(20);
     private final JTextField tfUserName = new JTextField(20);
     private final JPasswordField tfPw = new JPasswordField(20);
@@ -27,6 +31,16 @@ public class SignupView extends JPanel {
     private final JRadioButton rbO = new JRadioButton("기타");
     private final JSpinner spAge = new JSpinner(new SpinnerNumberModel(20, 18, 80, 1));
     private final JButton btnSubmit = new JButton("가입하기");
+
+    // 에러 라벨
+    private final JLabel lblIdError = new JLabel(" ");
+    private final JLabel lblUserNameError = new JLabel(" ");
+    private final JLabel lblPwError = new JLabel(" ");
+    private final JLabel lblMbtiError = new JLabel(" ");
+    private final JLabel lblGenderError = new JLabel(" ");
+
+    private static final Pattern ID_PATTERN =
+            Pattern.compile("^[a-zA-Z0-9_]{4,20}$");
 
     public SignupView(MainApp mainApp) {
         this.mainApp = mainApp;
@@ -54,6 +68,7 @@ public class SignupView extends JPanel {
     }
 
     private JPanel buildForm() {
+
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(new Color(250, 250, 250));
@@ -65,17 +80,30 @@ public class SignupView extends JPanel {
         p.add(title);
         p.add(Box.createVerticalStrut(20));
 
+        // 필드 + 에러 줄
         p.add(row("아이디", tfId));
+        p.add(errorLabel(lblIdError));
+
         p.add(row("닉네임", tfUserName));
+        p.add(errorLabel(lblUserNameError));
+
         p.add(row("비밀번호", tfPw));
+        p.add(errorLabel(lblPwError));
+
         p.add(row("MBTI", cbMBTI));
+        p.add(errorLabel(lblMbtiError));
 
         ButtonGroup g = new ButtonGroup();
         g.add(rbF); g.add(rbM); g.add(rbO);
-        JPanel gender = new JPanel();
-        gender.setOpaque(false);
-        gender.add(rbF); gender.add(rbM); gender.add(rbO);
-        p.add(row("성별", gender));
+        JPanel genderPanel = new JPanel();
+        genderPanel.setOpaque(false);
+        genderPanel.add(rbF);
+        genderPanel.add(rbM);
+        genderPanel.add(rbO);
+
+        p.add(row("성별", genderPanel));
+        p.add(errorLabel(lblGenderError));
+
         p.add(row("나이", spAge));
 
         p.add(Box.createVerticalStrut(20));
@@ -84,22 +112,129 @@ public class SignupView extends JPanel {
         btnSubmit.setAlignmentX(Component.CENTER_ALIGNMENT);
         p.add(btnSubmit);
 
+        attachValidationEvents();
+
         btnSubmit.addActionListener(e -> doSignup());
         return p;
     }
 
+    // --- 에러 라벨 한 줄 ---
+    private JPanel errorLabel(JLabel lbl) {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        p.setOpaque(false);
+        lbl.setForeground(Color.RED);
+        lbl.setFont(lbl.getFont().deriveFont(11f));
+        p.add(lbl);
+        return p;
+    }
+
+    // ---- 실시간 유효성 검사 이벤트 등록 ----
+    private void attachValidationEvents() {
+
+        tfId.addFocusListener(new FocusAdapter() {
+            @Override public void focusLost(FocusEvent e) { validateId(); }
+        });
+
+        tfUserName.addFocusListener(new FocusAdapter() {
+            @Override public void focusLost(FocusEvent e) { validateUserName(); }
+        });
+
+        tfPw.addFocusListener(new FocusAdapter() {
+            @Override public void focusLost(FocusEvent e) { validatePw(); }
+        });
+
+        cbMBTI.addActionListener(e -> validateMbti());
+
+        rbF.addActionListener(e -> validateGender());
+        rbM.addActionListener(e -> validateGender());
+        rbO.addActionListener(e -> validateGender());
+    }
+
+    // ---- 개별 유효성 ----
+    private boolean validateId() {
+        String id = tfId.getText().trim();
+        if (id.isEmpty()) {
+            lblIdError.setText("아이디를 입력해주세요.");
+            return false;
+        }
+        if (!ID_PATTERN.matcher(id).matches()) {
+            lblIdError.setText("ID 형식이 올바르지 않습니다. (영문/숫자/_, 4~20자)");
+            return false;
+        }
+        lblIdError.setText(" ");
+        return true;
+    }
+
+    private boolean validateUserName() {
+        String s = tfUserName.getText().trim();
+        if (s.isEmpty()) {
+            lblUserNameError.setText("닉네임을 입력해주세요.");
+            return false;
+        }
+        if (s.length() > 20) {
+            lblUserNameError.setText("닉네임은 20자 이하이어야 합니다.");
+            return false;
+        }
+        lblUserNameError.setText(" ");
+        return true;
+    }
+
+    private boolean validatePw() {
+        String pw = new String(tfPw.getPassword());
+        if (pw.isEmpty()) {
+            lblPwError.setText("비밀번호를 입력해주세요.");
+            return false;
+        }
+        if (pw.length() < 8) {
+            lblPwError.setText("비밀번호는 8자 이상이어야 합니다.");
+            return false;
+        }
+        lblPwError.setText(" ");
+        return true;
+    }
+
+    private boolean validateMbti() {
+        if (cbMBTI.getSelectedItem() == null) {
+            lblMbtiError.setText("MBTI를 선택해주세요.");
+            return false;
+        }
+        lblMbtiError.setText(" ");
+        return true;
+    }
+
+    private boolean validateGender() {
+        if (!rbF.isSelected() && !rbM.isSelected() && !rbO.isSelected()) {
+            lblGenderError.setText("성별을 선택해주세요.");
+            return false;
+        }
+        lblGenderError.setText(" ");
+        return true;
+    }
+
+    // ---- 전체 검사 ----
+    private boolean validateAll() {
+        boolean ok = true;
+        if (!validateId()) ok = false;
+        if (!validateUserName()) ok = false;
+        if (!validatePw()) ok = false;
+        if (!validateMbti()) ok = false;
+        if (!validateGender()) ok = false;
+        return ok;
+    }
+
     private void doSignup() {
+
+        if (!validateAll()) {
+            JOptionPane.showMessageDialog(this, "입력값을 다시 확인해주세요.");
+            return;
+        }
+
         String id = tfId.getText().trim();
         String userName = tfUserName.getText().trim();
         String pw = new String(tfPw.getPassword());
         String mbti = (String) cbMBTI.getSelectedItem();
-        String genderVal = rbF.isSelected() ? "f" : rbM.isSelected() ? "m" : rbO.isSelected() ? "o" : "";
+        String genderVal = rbF.isSelected() ? "f" : rbM.isSelected() ? "m" : "o";
         int age = (Integer) spAge.getValue();
-
-        if (id.isEmpty() || userName.isEmpty() || pw.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "아이디, 닉네임, 비밀번호를 입력하세요.");
-            return;
-        }
 
         String json = String.format(
                 "{\"id\":\"%s\",\"userName\":\"%s\",\"pwd\":\"%s\",\"gender\":\"%s\",\"age\":%d,\"mbti\":\"%s\"}",
@@ -108,33 +243,47 @@ public class SignupView extends JPanel {
 
         try {
             HttpResult res = ApiClient.post("/users", json);
+
             if (res.isOk()) {
                 JOptionPane.showMessageDialog(this, "회원가입 성공! 로그인 화면으로 이동합니다.");
                 mainApp.showView(MainApp.LOGIN);
+
             } else if (res.code == 409) {
-                // ★ 서버에서 409(중복) 보내줄 때 메시지 보여주기 (ResponseStatusException 메시지)
-                JOptionPane.showMessageDialog(this,
-                        "회원가입 실패: " + res.body);
-            } 
-            
-            else {
+                // 🔹 서버에서 온 메시지에 따라 구분해서 출력
+                String body = res.body != null ? res.body : "";
+
+                if (body.contains("아이디")) {
+                    JOptionPane.showMessageDialog(this, "중복된 아이디입니다.");
+                } else if (body.contains("닉네임")) {
+                    JOptionPane.showMessageDialog(this, "중복된 닉네임입니다.");
+                } else {
+                    // 혹시 예상 못 한 메시지이면 원래 바디도 같이 보여주기
+                    JOptionPane.showMessageDialog(this,
+                            "중복된 값이 있습니다.\n" + body);
+                }
+
+            } else {
                 JOptionPane.showMessageDialog(this, "회원가입 실패 (" + res.code + ")");
             }
-        } catch (Exception ex) {
+
+        }
+        catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
         }
     }
 
+    // --- 기존 row 메소드 그대로 사용 ---
     private JPanel row(String label, JComponent field) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
         p.setOpaque(false);
         JLabel l = new JLabel(label + " : ");
         l.setPreferredSize(new Dimension(60, 28));
-        p.add(l); p.add(field);
+        p.add(l);
+        p.add(field);
         return p;
     }
 
-    // ----- 공통 UI -----
+    // --- 공통 UI ---
     private JPanel gradientPanel() {
         JPanel p = new JPanel() {
             protected void paintComponent(Graphics g) {

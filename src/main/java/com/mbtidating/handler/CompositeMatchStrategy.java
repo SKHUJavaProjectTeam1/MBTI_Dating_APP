@@ -16,6 +16,21 @@ public class CompositeMatchStrategy {
         return this;
     }
 
+    public int calculateScore(User me, User target) {
+        int total = 0;
+
+        for (MatchStrategy s : strategies) {
+            int sc = s.score(me, target);
+            total += sc;
+        }
+
+        log.info("  [TotalScore] {} → {} = {}점",
+                me.getUserName(), target.getUserName(), total);
+
+        return total;
+    }
+
+
     public User findMatch(User me, List<User> candidates) {
         User best = null;
         int bestScore = Integer.MIN_VALUE;
@@ -23,18 +38,9 @@ public class CompositeMatchStrategy {
         for (User target : candidates) {
             if (target.getUserName().equals(me.getUserName())) continue;
 
-            int total = 0;
+            int total = calculateScore(me, target);
 
-            for (MatchStrategy s : strategies) {
-                int sc = s.score(me, target);
-                total += sc;
-
-                log.info("[Score] {} → {}: {}점 (전략={})",
-                        me.getUserName(), target.getUserName(), sc,
-                        s.getClass().getSimpleName());
-            }
-
-            log.info("[Total Score] {} → {}: {}점",
+            log.info("  [CandidateScore] {} → {}: {}점",
                     me.getUserName(), target.getUserName(), total);
 
             if (total > bestScore) {
@@ -43,7 +49,12 @@ public class CompositeMatchStrategy {
             }
         }
 
-        log.info("🎯 최종 선택: {} (총점: {})", best != null ? best.getUserName() : "없음", bestScore);
+        if (best != null) {
+            log.info("  🎯 [SelectMatch] {} → {} (총점: {}점)",
+                    me.getUserName(), best.getUserName(), bestScore);
+        }
+
         return best;
     }
+
 }

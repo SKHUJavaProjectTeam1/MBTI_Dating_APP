@@ -3,6 +3,7 @@ package com.mbtidating.controller;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -118,12 +119,56 @@ public class UserController {
             );
         }
 
-        String accessToken  = JwtUtil.generateToken(user.getId());
-        String refreshToken = JwtUtil.generateToken(user.getId() + "_refresh");
+        String accessToken  = JwtUtil.generateAccessToken(user.getId());
+        String refreshToken = JwtUtil.generateRefreshToken(user.getId() + "_refresh");
 
         User.Tokens tokens = new User.Tokens();
         tokens.setAccess(accessToken);
         tokens.setRefresh(refreshToken);
+        user.setTokens(tokens);
+
+        user.setLastLogin(Instant.now());
+        userRepository.save(user);
+
+        return user;
+    }
+    
+ // 🔹 Refresh 토큰으로 Access 토큰 재발급
+    @PostMapping("/refresh")
+    public User refreshToken(@RequestBody Map<String, String> body) {
+    	System.out.println("🔁 /api/users/refresh 호출됨, body = " + body);
+    	
+        String refreshToken = body.get("refreshToken");
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "refreshToken이 필요합니다.");
+        }
+
+        // 1) 토큰 타입 확인
+        String type = JwtUtil.getTokenType(refreshToken);
+        if (!"refresh".equals(type)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh 토큰이 아닙니다.");
+        }
+
+        // 2) 만료 여부 확인
+        if (JwtUtil.isExpired(refreshToken)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh 토큰이 만료되었습니다. 다시 로그인하세요.");
+        }
+
+        // 3) 토큰에서 loginId 꺼냄
+        String loginId = JwtUtil.extractClaims(refreshToken).getSubject();
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
+
+        // 4) 새 Access 토큰(필요하면 Refresh도) 발급
+        String newAccessToken  = JwtUtil.generateAccessToken(user.getId());
+        String newRefreshToken = JwtUtil.generateRefreshToken(user.getId()); // 토큰 로테이션 정책
+
+        User.Tokens tokens = new User.Tokens();
+        tokens.setAccess(newAccessToken);
+        tokens.setRefresh(newRefreshToken);
         user.setTokens(tokens);
 
         user.setLastLogin(Instant.now());

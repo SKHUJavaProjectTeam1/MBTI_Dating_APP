@@ -221,6 +221,7 @@ public class HomeView extends JPanel {
         private final JLabel mbtiValue = new JLabel("-");
         private final JLabel genderValue = new JLabel("-");
         private final JLabel ageValue = new JLabel("-");
+        private final JLabel userNameValue = new JLabel("-");
 
         InfoPanel() {
             setLayout(new BorderLayout());
@@ -243,6 +244,7 @@ public class HomeView extends JPanel {
             body.add(Box.createVerticalStrut(16));
 
             body.add(infoLine("아이디", idValue));
+            body.add(infoLine("닉네임", userNameValue));
             body.add(infoLine("MBTI", mbtiValue));
             body.add(infoLine("성별", genderValue));
             body.add(infoLine("나이", ageValue));
@@ -276,8 +278,17 @@ public class HomeView extends JPanel {
         }
 
         void update(User user) {
+        	System.out.println("[InfoPanel.update] user=" + user);
+            if (user != null) {
+                System.out.println("  id=" + user.getId()
+                        + ", userName=" + user.getUserName()
+                        + ", gender=" + user.getGender()
+                        + ", age=" + user.getAge());
+            }
+            
             if (user == null) {
                 idValue.setText("-");
+                userNameValue.setText("-");
                 mbtiValue.setText("-");
                 genderValue.setText("-");
                 ageValue.setText("-");
@@ -285,6 +296,7 @@ public class HomeView extends JPanel {
             }
 
             idValue.setText(user.getId());
+            userNameValue.setText(user.getUserName());
             mbtiValue.setText(buildMbti(user.getMbti()));
             genderValue.setText(buildGender(user.getGender()));
             ageValue.setText(user.getAge() != null ? user.getAge() + "세" : "-");
@@ -452,6 +464,7 @@ public class HomeView extends JPanel {
         private final User user;
 
         private final JTextField tfId = new JTextField();
+        private final JTextField tfUserName = new JTextField();
         private final JTextField tfMbti = new JTextField();
         private final JComboBox<String> cbGender =
                 new JComboBox<>(new String[]{"남자", "여자"});
@@ -480,6 +493,13 @@ public class HomeView extends JPanel {
             form.add(tfId, c);
             row++;
 
+            //닉네임
+            c.gridx = 0; c.gridy = row;
+            form.add(new JLabel("닉네임"), c);
+            c.gridx = 1;
+            form.add(tfUserName, c);
+            row++;
+            
             // MBTI
             c.gridx = 0; c.gridy = row;
             form.add(new JLabel("MBTI (예: INTJ)"), c);
@@ -567,6 +587,8 @@ public class HomeView extends JPanel {
         // User -> 폼 채우기
         private void initFields() {
             tfId.setText(user.getId());
+            
+            tfUserName.setText(user.getUserName());
 
             if (user.getMbti() != null && !user.getMbti().isEmpty()) {
                 StringBuilder sb = new StringBuilder();
@@ -590,6 +612,8 @@ public class HomeView extends JPanel {
 
         // 폼 -> User 반영
         private void applyToUser() {
+        	user.setUserName(tfUserName.getText().trim());
+        	
             String genderKor = (String) cbGender.getSelectedItem();
             if ("남자".equals(genderKor)) user.setGender("m");
             else if ("여자".equals(genderKor)) user.setGender("f");
@@ -614,6 +638,11 @@ public class HomeView extends JPanel {
         private String buildUpdateJson(User u) {
             StringBuilder sb = new StringBuilder();
             sb.append("{");
+            
+         // userName (닉네임)
+            sb.append("\"userName\":\"")
+            .append(u.getUserName() == null ? "" : u.getUserName())
+            .append("\",");
 
             // gender
             sb.append("\"gender\":\"")

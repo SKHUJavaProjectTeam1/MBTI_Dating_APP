@@ -160,6 +160,7 @@ public class LoginView extends JPanel {
         User u = new User();
 
         u.setId(extractJsonString(body, "\"id\":\""));
+        u.setUserName(extractJsonString(body, "\"userName\":\""));
         u.setGender(extractJsonString(body, "\"gender\":\""));
         u.setAge(extractJsonInt(body, "\"age\":"));
 

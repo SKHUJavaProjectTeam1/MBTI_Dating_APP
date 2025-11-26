@@ -75,7 +75,7 @@ public class ChatView extends JPanel {
                 if (e.getClickCount() == 2) {
                     RoomItem item = roomList.getSelectedValue();
                     if (item != null) {
-                        startChat(item.roomId, userName);
+                        startChat(item.roomId);
                     }
                 }
             }
@@ -220,9 +220,8 @@ public class ChatView extends JPanel {
 
     // ============================ 채팅방 입장 ============================
 
-    public void startChat(String roomId, String userName) {
+    public void startChat(String roomId) {
         this.roomId = roomId;
-        this.userName = userName;
 
         try {
             // ---- 0. 기존 메시지 제거 ----
@@ -232,11 +231,12 @@ public class ChatView extends JPanel {
             // ---- 1. 과거 메시지 로드 ----
             loadChatHistory();
 
-            // ---- 2. WebSocket 연결 ----
-            String encodedUser = URLEncoder.encode(userName, StandardCharsets.UTF_8.toString());
-            String wsUrl = "ws://localhost:8080/ws/chat/" + roomId + "/" + encodedUser;
+            // ---- 2. WebSocket 연결 (JWT 사용) ----
+            String jwtToken = mainApp.getJwtToken(); // MainApp에 저장된 JWT
+            String placeholderUser = mainApp.getLoggedInUserId();
+            String wsUrl = "ws://localhost:8080/ws/chat/" + roomId + "/" + URLEncoder.encode(placeholderUser, StandardCharsets.UTF_8.toString());
 
-            socketClient = new WebSocketClient(wsUrl, userName);
+            socketClient = new WebSocketClient(wsUrl, jwtToken);  // userName 대신 JWT 전달
             socketClient.onMessage(msg -> SwingUtilities.invokeLater(() -> receiveMessage(msg)));
             socketClient.connect();
 

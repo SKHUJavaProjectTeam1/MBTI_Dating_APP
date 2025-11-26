@@ -39,7 +39,7 @@ public class MatchWaitView extends JPanel {
                 	mainApp.setMatched(true);
                 	
                     ChatView chatView = mainApp.getChatView();
-                    chatView.startChat(roomId, self); // ✅ 하드코딩 금지
+                    chatView.startChat(roomId); // ✅ 하드코딩 금지
                     mainApp.showView(MainApp.CHAT);
                 });
             }

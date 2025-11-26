@@ -141,7 +141,7 @@ public class HomeView extends JPanel {
                     String roomId = room.getString("roomId");
 
                     ChatView chatView = mainApp.getChatView();
-                    chatView.startChat(roomId, userId);
+                    chatView.startChat(roomId);
 
                     mainApp.showView(MainApp.CHAT);
                     return;

@@ -12,6 +12,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONObject; // org.json를 사용하기 위해 pom.xml에 라이브러리 추가
 
 public class ChatView extends JPanel {
 
@@ -300,10 +301,40 @@ public class ChatView extends JPanel {
     }
 
     private void receiveMessage(String msg) {
-        if (msg.startsWith("🔔") || msg.startsWith("❌")) {
-            addSystemMessage(msg);
-        } else if (msg.contains(": ")) {
-            addOtherMessage(msg);
+        JSONObject data = null;
+        boolean isJson = true;
+
+        // JSON 파싱 시도
+        try {
+            data = new JSONObject(msg);
+        } catch (Exception e) {
+            isJson = false;
+        }
+
+        if (isJson && data != null) {
+            // JSON 기반 메시지 처리
+            String type = data.optString("type", "");
+            switch (type) {
+                case "chat":
+                    String sender = data.optString("sender", "unknown");
+                    String message = data.optString("message", "");
+                    addOtherMessage(sender + ": " + message);
+                    break;
+                case "system":
+                    String sysMessage = data.optString("message", "");
+                    addSystemMessage(sysMessage);
+                    break;
+                default:
+                    // 알 수 없는 타입 처리
+                    addSystemMessage("알 수 없는 메시지 타입: " + msg);
+            }
+        } else {
+            // 기존 문자열 호환 처리
+            if (msg.startsWith("🔔") || msg.startsWith("❌")) {
+                addSystemMessage(msg);
+            } else if (msg.contains(": ")) {
+                addOtherMessage(msg);
+            }
         }
     }
 

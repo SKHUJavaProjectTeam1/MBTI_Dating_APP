@@ -57,7 +57,7 @@ public class UserController {
         if (userRepository.findByUserName(userName).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "이미 사용 중인 사용자명입니다."
+                    "이미 사용 중인 닉네임입니다."
             );
         }
 

@@ -89,19 +89,12 @@ public class MatchPanelView extends JPanel {
                     for (int i = 0; i < arr.length() && i < cards.length; i++) {
                         JSONObject obj = arr.getJSONObject(i);
 
-                        // 이름
                         String userName = obj.optString("userName", "이름 없음");
-
-                        // 성별, 나이, 지역 (region 필드는 DB에 없으면 그냥 "-" 로 표시됨)
                         String gender = obj.optString("gender", "");
-                        Integer age = null;
-                        if (obj.has("age")) {
-                            // age가 없으면 0 이 들어올 수도 있으니 체크
-                            age = obj.optInt("age");
-                        }
+                        Integer age = obj.has("age") ? obj.optInt("age") : null;
                         String region = obj.optString("region", "");
 
-                        // MBTI Map -> "INFJ" 같은 문자열로 조합
+                        // MBTI 조합
                         String mbtiText = "-";
                         JSONObject mbtiObj = obj.optJSONObject("mbti");
                         if (mbtiObj != null) {
@@ -113,15 +106,19 @@ public class MatchPanelView extends JPanel {
                             if (!tmp.isBlank()) mbtiText = tmp;
                         }
 
+                        // ⭐ 궁합 퍼센트 추출
+                        int matchRate = obj.optInt("matchRate", -1);
+
                         System.out.println("[MatchPanel] 카드 " + (i + 1) +
                                 " -> name=" + userName +
                                 ", mbti=" + mbtiText +
                                 ", gender=" + gender +
                                 ", age=" + age +
-                                ", region=" + region);
+                                ", region=" + region +
+                                ", matchRate=" + matchRate);
 
-                        // ★ 카드에 전체 정보 세팅
-                        cards[i].setProfile(userName, mbtiText, gender, age, region);
+                        // 카드에 전체 정보 세팅 (궁합 포함)
+                        cards[i].setProfile(userName, mbtiText, gender, age, region, matchRate);
                     }
 
                 } catch (Exception e) {
@@ -129,6 +126,7 @@ public class MatchPanelView extends JPanel {
                     e.printStackTrace();
                 }
             }
+
 
         }.execute();
     }

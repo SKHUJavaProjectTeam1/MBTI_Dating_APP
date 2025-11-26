@@ -91,7 +91,7 @@ public class MainApp extends JFrame {
 
     // ★★★ HomeView에서 반드시 필요했던 메서드 추가 ★★★
     public String getLoggedInUserName() {
-        return (loggedInUser != null) ? loggedInUser.getId() : null;
+        return (loggedInUser != null) ? loggedInUser.getUserName() : null;
     }
     public String getLoggedInUserId() {
         return (loggedInUser != null) ? loggedInUser.getId() : null;

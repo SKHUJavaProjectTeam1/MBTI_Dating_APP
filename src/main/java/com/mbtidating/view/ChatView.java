@@ -231,9 +231,9 @@ public class ChatView extends JPanel {
             // ---- 1. 과거 메시지 로드 ----
             loadChatHistory();
 
-            // ---- 2. WebSocket 연결 (JWT 사용) ----
+         // ---- 2. WebSocket 연결 (JWT 사용) ----
             String jwtToken = mainApp.getJwtToken(); // MainApp에 저장된 JWT
-            String placeholderUser = mainApp.getLoggedInUserId();
+            String placeholderUser = mainApp.getLoggedInUserName();
             String wsUrl = "ws://localhost:8080/ws/chat/" + roomId + "/" + URLEncoder.encode(placeholderUser, StandardCharsets.UTF_8.toString());
 
             socketClient = new WebSocketClient(wsUrl, jwtToken);  // userName 대신 JWT 전달

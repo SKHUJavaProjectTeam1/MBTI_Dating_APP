@@ -1,11 +1,14 @@
 package com.mbtidating.view;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mbtidating.network.ApiClient;
 import com.mbtidating.network.ApiClient.HttpResult;
 
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SignupView extends JPanel {
 
@@ -101,29 +104,51 @@ public class SignupView extends JPanel {
             return;
         }
 
-        String json = String.format(
-                "{\"id\":\"%s\",\"userName\":\"%s\",\"pwd\":\"%s\",\"gender\":\"%s\",\"age\":%d,\"mbti\":\"%s\"}",
-                escape(id), escape(userName), escape(pw), genderVal, age, escape(mbti)
-        );
+        // 버튼 비활성화 및 로딩 표시
+        btnSubmit.setEnabled(false);
+        btnSubmit.setText("처리 중...");
 
-        try {
-            HttpResult res = ApiClient.post("/users", json);
-            if (res.isOk()) {
-                JOptionPane.showMessageDialog(this, "회원가입 성공! 로그인 화면으로 이동합니다.");
-                mainApp.showView(MainApp.LOGIN);
-            } else if (res.code == 409) {
-                // ★ 서버에서 409(중복) 보내줄 때 메시지 보여주기 (ResponseStatusException 메시지)
-                JOptionPane.showMessageDialog(this,
-                        "회원가입 실패: " + res.body);
-            } 
-            
-            else {
-                JOptionPane.showMessageDialog(this, "회원가입 실패 (" + res.code + ")");
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put("id", id);
+        requestMap.put("userName", userName);
+        requestMap.put("pwd", pw);
+        requestMap.put("gender", genderVal);
+        requestMap.put("age", age);
+        requestMap.put("mbti", mbti);
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        new SwingWorker<HttpResult, Void>() {
+            @Override
+            protected HttpResult doInBackground() throws Exception {
+                String json = mapper.writeValueAsString(requestMap);
+                return ApiClient.post("/users", json);
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
-        }
+
+            @Override
+            protected void done() {
+                try {
+                    HttpResult res = get();  // 백그라운드 작업 결과 가져오기
+
+                    if (res.isOk()) {
+                        JOptionPane.showMessageDialog(SignupView.this, "회원가입 성공! 로그인 화면으로 이동합니다.");
+                        mainApp.showView(MainApp.LOGIN);
+                    } else if (res.code == 409) {
+                        JOptionPane.showMessageDialog(SignupView.this, "회원가입 실패: " + res.body);
+                    } else {
+                        JOptionPane.showMessageDialog(SignupView.this, "회원가입 실패 (" + res.code + ")");
+                    }
+
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(SignupView.this, "서버 오류: " + ex.getMessage());
+                } finally {
+                    btnSubmit.setEnabled(true);
+                    btnSubmit.setText("가입하기");
+                }
+            }
+        }.execute();
     }
+
 
     private JPanel row(String label, JComponent field) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -170,10 +195,6 @@ public class SignupView extends JPanel {
                 new LineBorder(new Color(180, 180, 180), 1, true),
                 new EmptyBorder(8, 20, 8, 20)));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-    }
-
-    private static String escape(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static final String[] MBTI_ALL = {

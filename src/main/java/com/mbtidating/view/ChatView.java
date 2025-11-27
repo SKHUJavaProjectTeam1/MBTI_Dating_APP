@@ -519,51 +519,14 @@ public class ChatView extends JPanel {
     }
 
     // 입퇴장 알림 있는 버전
-    //    private void receiveJson(JSONObject json) {
-//        String type = json.optString("type");
-//
-//        switch (type) {
-//            case "JOIN": {
-//                JSONObject data = json.getJSONObject("data");
-//                String joinedName = data.optString("userName", "알 수 없음");
-//                addSystemMessage("🔔 " + joinedName + " 님이 입장했습니다.");
-//                break;
-//            }
-//
-//            case "CHAT": {
-//                JSONObject data = json.getJSONObject("data");
-//                String senderId = data.optString("senderId");
-//                String senderName = data.optString("senderName");
-//                String content = data.optString("content");
-//
-//                if (senderId.equals(userId))
-//                    return;  // 내가 보낸 메시지는 무시
-//
-//                addOtherMessage(senderName + ": " + content);
-//                break;
-//            }
-//
-//            case "LEAVE": {
-//                JSONObject data = json.getJSONObject("data");
-//                addSystemMessage("❌ " + data.optString("userName") + " 님이 퇴장했습니다.");
-//                break;
-//            }
-//
-//            default:
-//                addSystemMessage("알 수 없는 메시지: " + json);
-//        }
-//    }
-    private void receiveJson(JSONObject json) {
+        private void receiveJson(JSONObject json) {
         String type = json.optString("type");
 
         switch (type) {
-
             case "JOIN": {
                 JSONObject data = json.getJSONObject("data");
                 String joinedName = data.optString("userName", "알 수 없음");
-
-                // 🔥 UI 출력 X → 로그만
-                System.out.println("[CHAT] JOIN: " + joinedName);
+                addSystemMessage(joinedName + " 님이 입장했습니다.");
                 break;
             }
 
@@ -573,8 +536,8 @@ public class ChatView extends JPanel {
                 String senderName = data.optString("senderName");
                 String content = data.optString("content");
 
-                // 🔥 내가 보낸 메시지는 무시
-                if (senderId.equals(userId)) return;
+                if (senderId.equals(userId))
+                    return;  // 내가 보낸 메시지는 무시
 
                 addOtherMessage(senderName + ": " + content);
                 break;
@@ -582,17 +545,55 @@ public class ChatView extends JPanel {
 
             case "LEAVE": {
                 JSONObject data = json.getJSONObject("data");
-                String leftName = data.optString("userName", "알 수 없음");
-
-                // 🔥 UI 출력 X → 로그만
-                System.out.println("[CHAT] LEAVE: " + leftName);
+                addSystemMessage(data.optString("userName") + " 님이 퇴장했습니다.");
                 break;
             }
 
             default:
-                System.out.println("[CHAT] Unknown Type: " + json);
+                addSystemMessage("알 수 없는 메시지: " + json);
         }
     }
+    // 입퇴장 알림 없는 버전
+//    private void receiveJson(JSONObject json) {
+//        String type = json.optString("type");
+//
+//        switch (type) {
+//
+//            case "JOIN": {
+//                JSONObject data = json.getJSONObject("data");
+//                String joinedName = data.optString("userName", "알 수 없음");
+//
+//                // 🔥 UI 출력 X → 로그만
+//                System.out.println("[CHAT] JOIN: " + joinedName);
+//                break;
+//            }
+//
+//            case "CHAT": {
+//                JSONObject data = json.getJSONObject("data");
+//                String senderId = data.optString("senderId");
+//                String senderName = data.optString("senderName");
+//                String content = data.optString("content");
+//
+//                // 🔥 내가 보낸 메시지는 무시
+//                if (senderId.equals(userId)) return;
+//
+//                addOtherMessage(senderName + ": " + content);
+//                break;
+//            }
+//
+//            case "LEAVE": {
+//                JSONObject data = json.getJSONObject("data");
+//                String leftName = data.optString("userName", "알 수 없음");
+//
+//                // 🔥 UI 출력 X → 로그만
+//                System.out.println("[CHAT] LEAVE: " + leftName);
+//                break;
+//            }
+//
+//            default:
+//                System.out.println("[CHAT] Unknown Type: " + json);
+//        }
+//    }
 
 
     // ============================ 메시지 UI ============================

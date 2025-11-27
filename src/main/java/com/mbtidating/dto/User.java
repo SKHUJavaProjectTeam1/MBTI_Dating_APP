@@ -36,4 +36,8 @@ public class User {
         private String access;
         private String refresh;
     }
+    public String getProfileImg() {
+        return profileImg;
+    }
+
 }

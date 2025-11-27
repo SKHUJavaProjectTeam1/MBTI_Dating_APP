@@ -6,6 +6,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Document(collection = "chatrooms")
 public class ChatRoom {
@@ -48,24 +49,49 @@ public class ChatRoom {
 
     public static class Participant {
         private String userId;
+        private String userName;
 
         public Participant() {}
-        public Participant(String userId) { this.userId = userId; }
+
+        public Participant(String userId, String userName) {
+            this.userId = userId;
+            this.userName = userName;
+        }
 
         public String getUserId() { return userId; }
         public void setUserId(String userId) { this.userId = userId; }
+
+        public String getUserName() { return userName; }
+        public void setUserName(String userName) { this.userName = userName; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Participant)) return false;
+            Participant p = (Participant) o;
+            return Objects.equals(userId, p.userId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(userId);
+        }
     }
 
+
+
     public static class Message {
-        private String senderId;
+        private String senderId;     // 식별자
+        private String senderName;   // 닉네임
         private String message;
         private Instant sentAt;
         private boolean isRead;
-        private Instant lastMessageAt;
 
         public Message() {}
-        public Message(String senderId, String message) {
+
+        public Message(String senderId, String senderName, String message) {
             this.senderId = senderId;
+            this.senderName = senderName;
             this.message = message;
             this.sentAt = Instant.now();
             this.isRead = false;
@@ -74,10 +100,8 @@ public class ChatRoom {
         public String getSenderId() { return senderId; }
         public void setSenderId(String senderId) { this.senderId = senderId; }
 
- 
-
-        public Instant getLastMessageAt() { return lastMessageAt; }
-        public void setLastMessageAt(Instant lastMessageAt) { this.lastMessageAt = lastMessageAt; }
+        public String getSenderName() { return senderName; }
+        public void setSenderName(String senderName) { this.senderName = senderName; }
 
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }
@@ -88,4 +112,5 @@ public class ChatRoom {
         public boolean isRead() { return isRead; }
         public void setRead(boolean read) { isRead = read; }
     }
+
 }

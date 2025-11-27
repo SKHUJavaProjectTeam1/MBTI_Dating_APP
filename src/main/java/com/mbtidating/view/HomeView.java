@@ -114,17 +114,20 @@ public class HomeView extends JPanel {
         btnMyMBTI.addActionListener(e -> mainApp.showView(MainApp.MYMBTI));
         btnChat.addActionListener(e -> {
             String token = mainApp.getJwtToken();
-            String userId = mainApp.getLoggedInUserId();   // ← 중요: 반드시 이게 있어야 한다
+            User loggedIn = mainApp.getLoggedInUser();
 
-            if (token == null || token.isEmpty()) {
+            if (loggedIn == null || token == null || token.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "로그인이 필요합니다.");
                 mainApp.showView(MainApp.LOGIN);
                 return;
             }
 
+            String selfId = loggedIn.getId();
+            String selfName = loggedIn.getUserName();
+
             try {
-                // 1) DB에서 이 유저가 속한 채팅방 목록 조회
-                ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + userId);
+                // 1) 내가 속한 채팅방 목록 불러오기
+                ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + selfId);
 
                 if (!res.isOk()) {
                     JOptionPane.showMessageDialog(this, "서버 연결 오류");
@@ -134,21 +137,49 @@ public class HomeView extends JPanel {
                 JSONArray arr = new JSONArray(res.body);
 
                 // ---------------------------
-                // ❗ 방이 하나라도 있으면 그 방으로 이동
+                // ❗ 방이 하나라도 있으면 그 방으로 입장
                 // ---------------------------
                 if (arr.length() > 0) {
                     JSONObject room = arr.getJSONObject(0);
                     String roomId = room.getString("roomId");
 
+                    // ---------- 상대방 정보 추출 ----------
+                    String partnerId = null;
+                    String partnerName = "(상대 없음)";
+
+                    if (room.has("participants")) {
+                        JSONArray ps = room.getJSONArray("participants");
+
+                        for (int i2 = 0; i2 < ps.length(); i2++) {
+                            JSONObject p = ps.getJSONObject(i2);
+                            String uid = p.optString("userId", "");
+                            String uname = p.optString("userName", "");
+
+                            // 자기 자신이 아닌 사람 = 상대방
+                            if (!uid.isEmpty() && !uid.equals(selfId)) {
+                                partnerId = uid;
+                                partnerName = !uname.isEmpty() ? uname : uid;
+                                break;
+                            }
+                        }
+                    }
+
+                    // ---------- ChatView 호출 ----------
                     ChatView chatView = mainApp.getChatView();
-                    chatView.startChat(roomId, userId);
+                    chatView.startChat(
+                            roomId,
+                            selfId,
+                            selfName,
+                            partnerId,
+                            partnerName
+                    );
 
                     mainApp.showView(MainApp.CHAT);
                     return;
                 }
 
                 // ---------------------------
-                // ❗ 방이 없을 때만 "매칭 먼저 하세요" 표시
+                // ❗ 방이 없으면 안내
                 // ---------------------------
                 JOptionPane.showMessageDialog(this, "매칭하기를 통해 대화를 시작하세요.");
 
@@ -157,6 +188,7 @@ public class HomeView extends JPanel {
                 JOptionPane.showMessageDialog(this, "채팅방 불러오기 오류");
             }
         });
+
 
 
         btnMatch.addActionListener(e -> {

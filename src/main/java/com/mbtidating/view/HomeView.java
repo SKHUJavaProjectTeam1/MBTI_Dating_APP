@@ -130,8 +130,10 @@ public class HomeView extends JPanel {
 
                         String profileNum = obj.optString("profileImg", "1");
                         if ("default.jpg".equals(profileNum)) {
-                            profileNum = "1";
+                            int randomNum = 1 + (int)(Math.random() * 5); // 1 ~ 5
+                            profileNum = String.valueOf(randomNum);
                         }
+
 
                         JSONObject mbti = obj.optJSONObject("mbti");
                         String mbtiStr = "-";
@@ -566,7 +568,7 @@ public class HomeView extends JPanel {
             panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
             panel.setBorder(new EmptyBorder(12, 12, 12, 12)); // 여백 증가
             panel.setOpaque(false);
-            
+            /*
             // 궁합 텍스트
             matchLabel = new JLabel("궁합 0% 💘");
             matchLabel.setFont(new Font("Dialog", Font.PLAIN, 12));
@@ -581,15 +583,14 @@ public class HomeView extends JPanel {
             matchBar.setBorderPainted(false);
             matchBar.setStringPainted(false);
             matchBar.setAlignmentX(Component.CENTER_ALIGNMENT);
-            panel.add(matchBar);
+            panel.add(matchBar); */
 
             // 프로필 이미지
             imageLabel = new JLabel(new ImageIcon("images/default_profile.png"));
             imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            imageLabel.setPreferredSize(new Dimension(80, 80));
-            imageLabel.setMinimumSize(new Dimension(80, 80));
-            imageLabel.setMaximumSize(new Dimension(80, 80));
+           
             imageLabel.setBorder(new LineBorder(new Color(255, 218, 225), 2, true)); // 연한 핑크색 테두리
+            imageLabel.setOpaque(false);
             panel.add(imageLabel);
             panel.add(Box.createVerticalStrut(12));
 
@@ -612,9 +613,31 @@ public class HomeView extends JPanel {
             genderAgeLabel.setForeground(new Color(100, 100, 100));
             genderAgeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
             panel.add(genderAgeLabel);
+            
+         // 마우스 오버 시 색상 반전 효과
+            addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent e) {
+                    panel.setBackground(new Color(240, 230, 255)); // 연보라색 배경
+                    panel.setBorder(new LineBorder(new Color(180, 120, 210), 2, true)); // 테두리 강조
+                    panel.repaint();
+                }
+
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent e) {
+                    panel.setBackground(cardBackground); // 원래 배경색
+                    panel.setBorder(new LineBorder(new Color(200, 200, 200), 1, true)); // 기본 테두리
+                    panel.repaint();
+                }
+            });
+
+            
+            
 
             add(panel, BorderLayout.CENTER);
+            
         }
+        
 
         public void setProfile(String name, String mbti, String gender, int age, String profileNum, int matchPercent) {
             nameLabel.setText(name);
@@ -625,13 +648,23 @@ public class HomeView extends JPanel {
             URL url = getClass().getResource(imgPath);
             if (url != null) {
                 Image img = new ImageIcon(url).getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH);
-                imageLabel.setIcon(new ImageIcon(img));
+                ImageIcon icon = new ImageIcon(img);
+                imageLabel.setIcon(icon);
+
+                imageLabel.setOpaque(true); // ✅ 추가
+                imageLabel.setBackground(cardBackground); // ✅ 추가 (Color.WHITE나 카드 배경색)
+
+                // 고정 사이즈 제거
+                imageLabel.setPreferredSize(null);
+                imageLabel.setMinimumSize(null);
+                imageLabel.setMaximumSize(null);
             }
 
-            // 추가된 궁합 퍼센트 표시
+
+           /*
             matchLabel.setText("궁합 " + matchPercent + "% 💘");
             matchBar.setValue(matchPercent);
-            matchBar.setForeground(getMatchColor(matchPercent));
+            matchBar.setForeground(getMatchColor(matchPercent));*/
         }
 
     }

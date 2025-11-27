@@ -379,6 +379,7 @@ public class HomeView extends JPanel {
     // ========================== 왼쪽 내 정보 패널 ==========================
     class InfoPanel extends JPanel {
 
+        private JLabel avatarLabel;   // 🔥 아바타 라벨을 필드로 선언
         private final JLabel idValue = new JLabel("-");
         private final JLabel mbtiValue = new JLabel("-");
         private final JLabel genderValue = new JLabel("-");
@@ -386,28 +387,25 @@ public class HomeView extends JPanel {
         private final JLabel userNameValue = new JLabel("-");
 
         InfoPanel() {
-            // 둥근 모서리 적용을 위해 RoundPanel 사용
             super(new BorderLayout());
+
             JPanel wrapper = new RoundPanel(20, color2, subtleBorder, 1);
             wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
-            wrapper.setBorder(new EmptyBorder(20, 20, 20, 20)); // 여백 증가
+            wrapper.setBorder(new EmptyBorder(20, 20, 20, 20));
             wrapper.setOpaque(false);
-            
+
             JLabel title = new JLabel("내 정보");
             title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
-            title.setBorder(new EmptyBorder(0, 0, 16, 0));
-            title.setForeground(defaultFontColor);
             title.setAlignmentX(Component.CENTER_ALIGNMENT);
             wrapper.add(title);
 
-            // 아바타
-            JLabel avatar = avatarLabel("images/default_profile.png", 100); // 크기 증가
-            avatar.setAlignmentX(Component.CENTER_ALIGNMENT);
-            avatar.setBorder(new LineBorder(color4, 2, true)); // 강조색으로 테두리
-            wrapper.add(avatar);
+            // 🔥 placeholder 아바타 먼저 넣기
+            avatarLabel = avatarLabel("/images/default_profile.png", 100);
+            avatarLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            avatarLabel.setBorder(new LineBorder(color4, 2, true));
+            wrapper.add(avatarLabel);
             wrapper.add(Box.createVerticalStrut(24));
 
-            // 정보 라인들을 담을 패널
             JPanel infoContainer = new JPanel();
             infoContainer.setLayout(new BoxLayout(infoContainer, BoxLayout.Y_AXIS));
             infoContainer.setOpaque(false);
@@ -418,58 +416,44 @@ public class HomeView extends JPanel {
             infoContainer.add(infoLine("나이", ageValue));
             wrapper.add(infoContainer);
 
-            wrapper.add(Box.createVerticalGlue()); // 여백 채우기
+            wrapper.add(Box.createVerticalGlue());
 
-            JButton edit = new JButton("프로필 수정");
-            edit.setBackground(color4);
-            edit.setForeground(Color.WHITE);
-            edit.setBorderPainted(false);
-            edit.setOpaque(true);
-            edit.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            edit.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40)); // 버튼 가로 길이 늘리기
-            edit.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-            edit.addActionListener(e -> {
-                User user = mainApp.getLoggedInUser();
-                if (user == null) {
-                    JOptionPane.showMessageDialog(InfoPanel.this, "로그인 정보가 없습니다.");
-                    return;
-                }
-
-                Window owner = SwingUtilities.getWindowAncestor(HomeView.this);
-                ProfileEditDialog dialog = new ProfileEditDialog(owner, user);
-                dialog.setLocationRelativeTo(HomeView.this);
-                dialog.setVisible(true);
-
-                update(user); // 수정 후 정보 업데이트
-            });
-
-            wrapper.add(edit);
-            
             add(wrapper, BorderLayout.CENTER);
             setOpaque(false);
         }
 
+        // 🔥 user 정보가 갱신될 때 아바타도 갱신하도록
         void update(User user) {
-            // 기존 업데이트 로직 유지
-             if (user == null) {
-                idValue.setText("-");
-                userNameValue.setText("-");
-                mbtiValue.setText("-");
-                genderValue.setText("-");
-                ageValue.setText("-");
-                return;
-            }
+
+            if (user == null) return;
 
             idValue.setText(user.getId());
             userNameValue.setText(user.getUserName());
             mbtiValue.setText(buildMbti(user.getMbti()));
             genderValue.setText(buildGender(user.getGender()));
-            ageValue.setText(user.getAge() != null ? user.getAge() + "세" : "-");
+            ageValue.setText(user.getAge() + "세");
+
+            // 🔥 프로필 이미지 적용
+            String profileNum = user.getProfileImg();
+            if (profileNum == null || profileNum.equals("default.jpg")) {
+                profileNum = String.valueOf(1 + (int)(Math.random()*5));
+            }
+
+            String avatarPath = "/images/profile" + profileNum + ".png";
+
+            ImageIcon icon = new ImageIcon(
+                    new ImageIcon(getClass().getResource(avatarPath))
+                    .getImage()
+                    .getScaledInstance(100, 100, Image.SCALE_SMOOTH)
+            );
+
+            avatarLabel.setIcon(icon);
 
             revalidate();
             repaint();
         }
+    }
+
 
         private JComponent infoLine(String label, JLabel valueLabel) {
             JPanel p = new JPanel(new BorderLayout());
@@ -513,7 +497,6 @@ public class HomeView extends JPanel {
             if (g.startsWith("f")) return "여자";
             return g;
         }
-    }
     // ========================== 공통 유틸: 아바타 ==========================
     private JLabel avatarLabel(String pathOrClasspath, int size) {
         Image img;
@@ -542,133 +525,103 @@ public class HomeView extends JPanel {
         private Color cardBackground;
         private JLabel matchLabel;
         private JProgressBar matchBar;
+        private RoundPanel panel;
+        private String currentProfileNum = "1"; // 이미지 번호 기억용
 
         private Color getMatchColor(int percent) {
-            if (percent >= 80) return new Color(255, 105, 180);   // 핫핑크
-            if (percent >= 60) return new Color(255, 165, 0);     // 주황
-            if (percent >= 40) return new Color(255, 215, 0);     // 노랑
-            return new Color(200, 200, 200);                      // 회색
+            if (percent >= 80) return new Color(255, 105, 180);
+            if (percent >= 60) return new Color(255, 165, 0);
+            if (percent >= 40) return new Color(255, 215, 0);
+            return new Color(200, 200, 200);
         }
 
-        
-        // 생성자에 배경색을 추가
         ProfileCard(Color cardBackground) {
-        	
-        	
             this.cardBackground = cardBackground;
             setLayout(new BorderLayout());
-            setPreferredSize(new Dimension(150, 220)); // 높이 증가
+            setPreferredSize(new Dimension(150, 220));
             setOpaque(false);
-            
-   
 
-
-            // 둥근 모서리 패널 사용
-            RoundPanel panel = new RoundPanel(16, cardBackground, new Color(200, 200, 200), 1);
+            // 둥근 모서리 패널
+            panel = new RoundPanel(16, cardBackground, new Color(200, 200, 200), 1);
             panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-            panel.setBorder(new EmptyBorder(12, 12, 12, 12)); // 여백 증가
+            panel.setBorder(new EmptyBorder(12, 12, 12, 12));
             panel.setOpaque(false);
-            /*
-            // 궁합 텍스트
-            matchLabel = new JLabel("궁합 0% 💘");
-            matchLabel.setFont(new Font("Dialog", Font.PLAIN, 12));
-            matchLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            panel.add(Box.createVerticalStrut(8));
-            panel.add(matchLabel);
 
-            // 퍼센트 바
-            matchBar = new JProgressBar(0, 100);
-            matchBar.setValue(0);
-            matchBar.setPreferredSize(new Dimension(100, 8));
-            matchBar.setBorderPainted(false);
-            matchBar.setStringPainted(false);
-            matchBar.setAlignmentX(Component.CENTER_ALIGNMENT);
-            panel.add(matchBar); */
-
-            // 프로필 이미지
+            // 이미지 라벨
             imageLabel = new JLabel(new ImageIcon("images/default_profile.png"));
             imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-           
-            imageLabel.setBorder(new LineBorder(new Color(255, 218, 225), 2, true)); // 연한 핑크색 테두리
+            imageLabel.setBorder(new LineBorder(new Color(255, 218, 225), 2, true));
             imageLabel.setOpaque(false);
             panel.add(imageLabel);
             panel.add(Box.createVerticalStrut(12));
 
             // 이름
             nameLabel = new JLabel("이름");
-            nameLabel.setFont(new Font("Dialog", Font.BOLD, 15)); // 폰트 크기 증가
+            nameLabel.setFont(new Font("Dialog", Font.BOLD, 15));
             nameLabel.setForeground(new Color(30, 30, 30));
             nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
             panel.add(nameLabel);
 
             // MBTI
             mbtiLabel = new JLabel("MBTI");
-            mbtiLabel.setForeground(new Color(190, 150, 210)); // 강조색 적용
+            mbtiLabel.setForeground(new Color(190, 150, 210));
             mbtiLabel.setFont(new Font("Dialog", Font.BOLD, 13));
             mbtiLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
             panel.add(mbtiLabel);
 
-            // 성별+나이
+            // 성별/나이
             genderAgeLabel = new JLabel("성별 / 나이");
             genderAgeLabel.setForeground(new Color(100, 100, 100));
             genderAgeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
             panel.add(genderAgeLabel);
-            
-         // 마우스 오버 시 색상 반전 효과
+
+            // 마우스 오버 시 효과 (이미지 크기 포함)
             addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseEntered(java.awt.event.MouseEvent e) {
-                    panel.setBackground(new Color(240, 230, 255)); // 연보라색 배경
-                    panel.setBorder(new LineBorder(new Color(180, 120, 210), 2, true)); // 테두리 강조
+                    panel.setBackground(new Color(240, 230, 255));
+                    panel.setBorder(new LineBorder(new Color(180, 120, 210), 2, true));
+                    updateProfileImage(100); // 확대
                     panel.repaint();
                 }
 
                 @Override
                 public void mouseExited(java.awt.event.MouseEvent e) {
-                    panel.setBackground(cardBackground); // 원래 배경색
-                    panel.setBorder(new LineBorder(new Color(200, 200, 200), 1, true)); // 기본 테두리
+                    panel.setBackground(cardBackground);
+                    panel.setBorder(new LineBorder(new Color(200, 200, 200), 1, true));
+                    updateProfileImage(80); // 원래 크기로 복원
                     panel.repaint();
                 }
             });
 
-            
-            
-
             add(panel, BorderLayout.CENTER);
-            
         }
-        
 
         public void setProfile(String name, String mbti, String gender, int age, String profileNum, int matchPercent) {
             nameLabel.setText(name);
             mbtiLabel.setText(mbti);
             genderAgeLabel.setText(gender + " / " + age + "세");
+            this.currentProfileNum = profileNum;
 
-            String imgPath = "/images/profile" + profileNum + ".png";
+            updateProfileImage(80); // 초기 크기 적용
+        }
+
+        private void updateProfileImage(int size) {
+            String imgPath = "/images/profile" + currentProfileNum + ".png";
             URL url = getClass().getResource(imgPath);
             if (url != null) {
-                Image img = new ImageIcon(url).getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH);
+                Image img = new ImageIcon(url).getImage().getScaledInstance(size, size, Image.SCALE_SMOOTH);
                 ImageIcon icon = new ImageIcon(img);
                 imageLabel.setIcon(icon);
 
-                imageLabel.setOpaque(true); // ✅ 추가
-                imageLabel.setBackground(cardBackground); // ✅ 추가 (Color.WHITE나 카드 배경색)
-
-                // 고정 사이즈 제거
-                imageLabel.setPreferredSize(null);
-                imageLabel.setMinimumSize(null);
-                imageLabel.setMaximumSize(null);
+                imageLabel.setPreferredSize(new Dimension(size, size));
+                imageLabel.setMinimumSize(new Dimension(size, size));
+                imageLabel.setMaximumSize(new Dimension(size, size));
+                imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                imageLabel.setHorizontalAlignment(JLabel.CENTER);
             }
-
-
-           /*
-            matchLabel.setText("궁합 " + matchPercent + "% 💘");
-            matchBar.setValue(matchPercent);
-            matchBar.setForeground(getMatchColor(matchPercent));*/
         }
-
     }
-
 
     // ========================== 채팅 말풍선 영역 (개선) ==========================
     static class BubbleArea extends JPanel {

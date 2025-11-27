@@ -18,8 +18,9 @@ public class ChatView extends JPanel {
 
     private final MainApp mainApp;
     private WebSocketClient socketClient;
-    private String roomId;
-    private String userName;   // ← 현재 로그인한 아이디(id)
+    private String roomId; 
+    private String userId;     // 로그인 아이디
+    private String userName;   // 로그인한 사용자의 이름
 
     // 왼쪽 리스트용
     private final DefaultListModel<RoomItem> roomListModel = new DefaultListModel<>();
@@ -118,7 +119,8 @@ public class ChatView extends JPanel {
             User u = mainApp.getLoggedInUser();
             if (u == null) return;
 
-            this.userName = u.getId();   // 로그인 아이디 사용 (participants.userId와 동일)
+            this.userId = u.getId();          // ← 아이디
+            this.userName = u.getUserName();  // ← 표시용 이름
 
             ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + userName);
             if (!res.isOk() || res.body == null || res.body.isEmpty()) {
@@ -140,8 +142,9 @@ public class ChatView extends JPanel {
                     for (int j = 0; j < ps.length(); j++) {
                         JSONObject p = ps.getJSONObject(j);
                         String uid = p.optString("userId", "");
+                        String uname = p.optString("userName", uid);
                         if (!uid.isEmpty() && !uid.equals(userName)) {
-                            partner = uid;
+                        	partner = uname;
                             break;
                         }
                     }
@@ -267,13 +270,14 @@ public class ChatView extends JPanel {
 
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject m = arr.getJSONObject(i);
-                String sender = m.getString("senderId");
-                String text = m.getString("message");
+                String senderId   = m.getString("senderId");
+                String senderName = m.optString("senderName", senderId);
+                String text       = m.getString("message");
 
-                if (sender.equals(userName)) {
+                if (senderId.equals(userName)) {
                     addMyMessage(text);
                 } else {
-                    addOtherMessage(sender + ": " + text);
+                    addOtherMessage(senderName + ": " + text);
                 }
             }
         } catch (Exception e) {

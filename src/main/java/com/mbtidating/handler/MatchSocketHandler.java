@@ -2,6 +2,8 @@ package com.mbtidating.handler;
 
 import com.mbtidating.config.JwtUtil;
 import com.mbtidating.dto.User;
+import com.mbtidating.repository.ChatRoomRepository;
+import com.mbtidating.dto.ChatRoom;
 import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
@@ -21,11 +23,18 @@ public class MatchSocketHandler {
     private static final Set<String> waitingUsers = ConcurrentHashMap.newKeySet();
     private static final Queue<Session> queue = new ConcurrentLinkedQueue<>();
     private static UserRepository staticUserRepo;
+    private static ChatRoomRepository staticChatRoomRepo;
 
     @Autowired
     public void setUserRepo(UserRepository repo) {
         MatchSocketHandler.staticUserRepo = repo;
     }
+    
+    @Autowired
+    public void setChatRoomRepo(ChatRoomRepository repo) {
+        MatchSocketHandler.staticChatRoomRepo = repo;
+    }
+    
     @OnOpen
     public void onOpen(Session session, @PathParam("token") String token) throws IOException {
 
@@ -112,7 +121,18 @@ public class MatchSocketHandler {
         // 룸 생성
         String roomId = UUID.randomUUID().toString();
         System.out.println("[MATCH] 매칭 완료 → " + roomId + " / " + me.getUserName() + " - " + best.getUserName());
+        
+        // ★★★ 방 DB 생성 (필수) ★★★
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(roomId);
 
+        // 현재 네 ChatRoom DTO에는 userA, userB 없음 → participants로 저장
+        room.getParticipants().add(new ChatRoom.Participant(me.getId(), me.getUserName()));
+        room.getParticipants().add(new ChatRoom.Participant(best.getId(), best.getUserName()));
+
+        staticChatRoomRepo.save(room);
+        System.out.println("[MATCH] 방 생성(DB 저장) → " + roomId);
+        
         // 결과 전송
         send(meSession, String.format(
                 "{\"type\":\"match_found\", " +

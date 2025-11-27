@@ -40,23 +40,32 @@ public class ChatRoom {
 
     public static class Participant {
         private String userId;
+        private String userName;
 
         public Participant() {}
-        public Participant(String userId) { this.userId = userId; }
+        public Participant(String userId, String userName) {
+            this.userId = userId;
+            this.userName = userName;
+        }
 
         public String getUserId() { return userId; }
         public void setUserId(String userId) { this.userId = userId; }
+        
+        public String getUserName() { return userName; }
+        public void setUserName(String userName) { this.userName = userName; }
     }
 
     public static class Message {
         private String senderId;
+        private String senderName;
         private String message;
         private Instant sentAt;
         private boolean isRead;
 
         public Message() {}
-        public Message(String senderId, String message) {
+        public Message(String senderId, String senderName, String message) {
             this.senderId = senderId;
+            this.senderName = senderName;
             this.message = message;
             this.sentAt = Instant.now();
             this.isRead = false;
@@ -64,6 +73,9 @@ public class ChatRoom {
 
         public String getSenderId() { return senderId; }
         public void setSenderId(String senderId) { this.senderId = senderId; }
+
+        public String getSenderName() { return senderName; }
+        public void setSenderName(String senderName) { this.senderName = senderName; }
 
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }

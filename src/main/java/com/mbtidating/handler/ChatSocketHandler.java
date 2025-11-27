@@ -1,6 +1,9 @@
 package com.mbtidating.handler;
 
 import com.mbtidating.repository.ChatRoomRepository;
+import com.mbtidating.repository.UserRepository;
+import com.mbtidating.dto.User;
+
 import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
@@ -16,10 +19,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatSocketHandler {
 
     private static ChatRoomRepository roomRepo;
+    private static UserRepository userRepo;
 
     @Autowired
     public void setChatRoomRepository(ChatRoomRepository repo) {
         ChatSocketHandler.roomRepo = repo;
+    }
+    
+    @Autowired
+    public void setUserRepository(UserRepository repo) {
+        ChatSocketHandler.userRepo = repo;
     }
 
     private static final Map<String, Map<String, Session>> rooms = new ConcurrentHashMap<>();
@@ -45,30 +54,52 @@ public class ChatSocketHandler {
         }
     }
 
-    private ChatRoom getOrCreateRoom(String roomId) {
-        return roomRepo.findById(roomId).orElseGet(() -> {
-            ChatRoom room = new ChatRoom();
-            room.setRoomId(roomId);
-            return roomRepo.save(room);
-        });
+    private ChatRoom getRoomOrNull(String roomId) {
+        return roomRepo.findById(roomId).orElse(null);
     }
 
-    private void saveMessage(String roomId, String sender, String message) {
-        ChatRoom room = getOrCreateRoom(roomId);
-        room.getChatHistory().add(new ChatRoom.Message(sender, message));
+
+    private void saveMessage(String roomId, String senderId, String message) {
+    	ChatRoom room = roomRepo.findById(roomId).orElse(null);
+    	if (room == null) {
+            System.out.println("[WARN] Message save failed: room does not exist → " + roomId);
+            return;
+        }
+        String senderName = room.getParticipants().stream()
+                .filter(p -> p.getUserId().equals(senderId))
+                .map(ChatRoom.Participant::getUserName)
+                .findFirst()
+                .orElse(senderId);
+        
+        room.getChatHistory().add(
+                new ChatRoom.Message(senderId, senderName, message)
+        );
+        
         roomRepo.save(room);
     }
 
 
     // --- 참여자 등록 ---
-    private void addParticipant(String roomId, String user) {
-        ChatRoom room = getOrCreateRoom(roomId);
+    private void addParticipant(String roomId, String userId) {
+    	ChatRoom room = roomRepo.findById(roomId).orElse(null);
+    	if (room == null) {
+    	    System.out.println("[WARN] addParticipant failed: room does not exist → " + roomId);
+    	    return;
+    	}
 
         boolean exists = room.getParticipants().stream()
-                .anyMatch(p -> p.getUserId().equals(user));
+                .anyMatch(p -> p.getUserId().equals(userId));
 
         if (!exists) {
-            room.getParticipants().add(new ChatRoom.Participant(user));
+
+            // 🔥 DB에서 사용자 조회
+            User u = userRepo.findById(userId).orElse(null);
+            String username = (u != null ? u.getUserName() : userId);
+
+            room.getParticipants().add(
+                new ChatRoom.Participant(userId, username)
+            );
+
             roomRepo.save(room);
         }
     }
@@ -79,11 +110,16 @@ public class ChatSocketHandler {
     public void onOpen(Session session,
                        @PathParam("roomId") String roomId,
                        @PathParam("user") String user) throws IOException {
+    	 Map<String, Session> room = rooms.computeIfAbsent(roomId, k -> new ConcurrentHashMap<>());
+    	
+    	 Session old = room.get(user);
+    	    if (old != null && old.isOpen()) {
+    	        try { old.close(); } catch (Exception ignored) {}
+    	    }
 
-        rooms.putIfAbsent(roomId, new ConcurrentHashMap<>());
-        rooms.get(roomId).put(user, session);
+    	    room.put(user, session);
 
-        addParticipant(roomId, user);
+    	    addParticipant(roomId, user);
 
         broadcast(roomId, "🔔 " + user + " 님이 입장했습니다.");
         System.out.println("[CHAT] 입장: " + roomId + " / " + user);

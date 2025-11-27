@@ -14,6 +14,7 @@ public class ChatRoom {
     private String roomId;
 
     private Instant createdAt = Instant.now();
+    private Instant lastMessageAt;
 
     private List<Participant> participants = new ArrayList<>();
     private List<Message> chatHistory = new ArrayList<>();
@@ -26,6 +27,13 @@ public class ChatRoom {
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
+    public Instant getLastMessageAt() {
+        return lastMessageAt;
+    }
+
+    public void setLastMessageAt(Instant lastMessageAt) {
+        this.lastMessageAt = lastMessageAt;
+    }
     public List<Participant> getParticipants() { return participants; }
     public void setParticipants(List<Participant> participants) {
         this.participants = participants;
@@ -53,6 +61,7 @@ public class ChatRoom {
         private String message;
         private Instant sentAt;
         private boolean isRead;
+        private Instant lastMessageAt;
 
         public Message() {}
         public Message(String senderId, String message) {
@@ -64,6 +73,11 @@ public class ChatRoom {
 
         public String getSenderId() { return senderId; }
         public void setSenderId(String senderId) { this.senderId = senderId; }
+
+ 
+
+        public Instant getLastMessageAt() { return lastMessageAt; }
+        public void setLastMessageAt(Instant lastMessageAt) { this.lastMessageAt = lastMessageAt; }
 
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }

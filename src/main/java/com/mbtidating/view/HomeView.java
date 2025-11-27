@@ -415,6 +415,33 @@ public class HomeView extends JPanel {
             infoContainer.add(infoLine("성별", genderValue));
             infoContainer.add(infoLine("나이", ageValue));
             wrapper.add(infoContainer);
+            wrapper.add(Box.createVerticalStrut(16)); // 여백 약간 추가
+
+            JButton edit = new JButton("프로필 수정");
+            edit.setBackground(color4);
+            edit.setForeground(Color.WHITE);
+            edit.setBorderPainted(false);
+            edit.setOpaque(true);
+            edit.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            edit.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+            edit.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            edit.addActionListener(e -> {
+                User user = mainApp.getLoggedInUser();
+                if (user == null) {
+                    JOptionPane.showMessageDialog(InfoPanel.this, "로그인 정보가 없습니다.");
+                    return;
+                }
+
+                Window owner = SwingUtilities.getWindowAncestor(HomeView.this);
+                ProfileEditDialog dialog = new ProfileEditDialog(owner, user);
+                dialog.setLocationRelativeTo(HomeView.this);
+                dialog.setVisible(true);
+
+                update(user); // 수정 후 정보 갱신
+            });
+
+            wrapper.add(edit);
 
             wrapper.add(Box.createVerticalGlue());
 

@@ -70,8 +70,15 @@ public class MainApp extends JFrame {
         cardLayout.show(cardPanel, key);
         cardPanel.revalidate();
         cardPanel.repaint();
+
+        // 💡 CHAT 뷰로 전환될 때, 새로고침
+        if (CHAT.equals(key)) {
+            chatView.refreshRoomList();  // ✅ 자동 새로고침 추가
+        }
+
         System.out.println(">> View switched to: " + key);
     }
+
 
     // ===== getter & setter =====
     public MatchWaitView getMatchWaitView() { return matchWaitView; }

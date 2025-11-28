@@ -337,7 +337,7 @@ public class HomeView extends JPanel {
         JPanel middle = new JPanel(new BorderLayout(24, 0)); // 컴포넌트 간 간격 증가
         middle.add(left, BorderLayout.WEST);
         middle.add(center, BorderLayout.CENTER);
-        middle.add(right, BorderLayout.EAST);
+       
         middle.setBackground(color1);
 
         root.add(middle, BorderLayout.CENTER);
@@ -605,7 +605,9 @@ public class HomeView extends JPanel {
             setOpaque(false);
 
             // 둥근 모서리 패널
-            panel = new RoundPanel(16, cardBackground, new Color(200, 200, 200), 1);
+            Color softPurple = new Color(235, 230, 250); // 연한 보라색 (예: #EBE6FA)
+            panel = new RoundPanel(16, softPurple, new Color(200, 200, 200), 1);
+
             panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
             panel.setBorder(new EmptyBorder(12, 12, 12, 12));
             panel.setOpaque(false);

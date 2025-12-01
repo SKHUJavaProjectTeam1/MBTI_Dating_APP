@@ -162,9 +162,61 @@ public class ChatView extends JPanel {
         bottom.setOpaque(false);
         bottom.add(refreshBtn);
         leftPanel.add(bottom, BorderLayout.SOUTH);
+        
+        JButton deleteBtn = new JButton("선택한 방 삭제");
+        deleteBtn.setBackground(new Color(255, 200, 200));
+        deleteBtn.setFocusPainted(false);
+
+        deleteBtn.addActionListener(e -> {
+            RoomItem item = roomList.getSelectedValue();
+            
+            if (item == null) {
+                JOptionPane.showMessageDialog(this, "삭제할 방을 선택하세요!");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(
+                this, 
+                "정말 삭제할까요?", 
+                "채팅방 삭제", 
+                JOptionPane.YES_NO_OPTION
+            );
+
+            if (confirm != JOptionPane.YES_OPTION) return;
+
+            deleteChatRoom(item.roomId);
+        });
+
+        bottom.add(Box.createVerticalStrut(10));
+        bottom.add(deleteBtn);
+
 
         return leftPanel;
     }
+    
+    private void deleteChatRoom(String roomId) {
+        try {
+            User me = mainApp.getLoggedInUser();
+            String token = mainApp.getJwtToken();
+
+            ApiClient.HttpResult res =
+                    ApiClient.delete("/api/chat/rooms/" + roomId, token);
+
+            if (!res.isOk()) {
+                JOptionPane.showMessageDialog(this, "삭제 실패: " + res.body);
+                return;
+            }
+
+            JOptionPane.showMessageDialog(this, "삭제되었습니다.");
+
+            refreshRoomList();  // 삭제 후 목록 새로고침
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
+        }
+    }
+
 
     // ============================ 리스트 셀 렌더러 ============================
 
@@ -312,7 +364,8 @@ public class ChatView extends JPanel {
             this.userId = u.getId();          // 내 ID
             this.selfName = u.getUserName();  // 내 닉네임
 
-            ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + userId);
+            ApiClient.HttpResult res = ApiClient.get("/api/chat/rooms/user/" + userId);
+
             if (!res.isOk() || res.body == null || res.body.isEmpty()) {
                 roomListModel.clear();
                 return;

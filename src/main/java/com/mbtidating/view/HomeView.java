@@ -94,6 +94,7 @@ public class HomeView extends JPanel {
 	private final Color cardBackground = Color.WHITE; // 프로필 카드 배경
 	private final Color defaultFontColor = new Color(50, 50, 50); // 기본 폰트 색상
 	private final Color subtleBorder = new Color(220, 220, 220); // 얇은 구분선/테두리
+	private BubbleArea chatBubbleArea;   // ← 이걸 추가
 
 	public HomeView(MainApp mainApp) {
 		this.mainApp = mainApp;
@@ -112,6 +113,8 @@ public class HomeView extends JPanel {
 		if (infoPanel != null)
 			infoPanel.update(user);
 	}
+	
+	
 
 	// 이하는 서버 통신 관련 코드로, 디자인 변경 없이 유지합니다.
 	public void loadProfilesFromServer() {
@@ -121,7 +124,8 @@ public class HomeView extends JPanel {
 			@Override
 			protected Void doInBackground() throws Exception {
 				String token = mainApp.getJwtToken();
-				ApiClient.HttpResult res = ApiClient.get("/users", token);
+				ApiClient.HttpResult res = ApiClient.get("/api/users", token);
+
 
 				if (res.isOk()) {
 					response = res.body;
@@ -249,6 +253,74 @@ public class HomeView extends JPanel {
 
 		}.execute(); 
 	}
+	
+	private void loadChatRooms() {
+	    new javax.swing.SwingWorker<Void, Void>() {
+
+	        String response;
+
+	        @Override
+	        protected Void doInBackground() throws Exception {
+	            User me = mainApp.getLoggedInUser();
+	            if (me == null) return null;
+
+	            String token = mainApp.getJwtToken();
+	            ApiClient.HttpResult res =
+	                ApiClient.get("/api/chat/rooms/user/" + me.getId(), token);
+
+	            if (res.isOk()) {
+	                response = res.body;
+	            }
+	            return null;
+	        }
+
+	        @Override
+	        protected void done() {
+	            if (response == null) return;
+
+	            try {
+	                chatBubbleArea.removeAll();
+
+	                JSONArray arr = new JSONArray(response);
+	                for (int i = 0; i < arr.length(); i++) {
+	                    JSONObject room = arr.getJSONObject(i);
+
+	                    // 마지막 메시지
+	                    String lastMsg = "(메시지 없음)";
+	                    JSONArray history = room.optJSONArray("chatHistory");
+	                    if (history != null && history.length() > 0) {
+	                        JSONObject last = history.getJSONObject(history.length() - 1);
+	                        lastMsg = last.optString("message", lastMsg);
+	                    }
+
+	                    // 상대 이름
+	                    String meId = mainApp.getLoggedInUser().getId();
+	                    String partnerName = "상대 없음";
+
+	                    JSONArray ps = room.optJSONArray("participants");
+	                    if (ps != null) {
+	                        for (int j = 0; j < ps.length(); j++) {
+	                            JSONObject p = ps.getJSONObject(j);
+	                            if (!p.getString("userId").equals(meId)) {
+	                                partnerName = p.getString("userName");
+	                            }
+	                        }
+	                    }
+
+	                    chatBubbleArea.addLeft(partnerName + " : " + lastMsg);
+	                }
+
+	                chatBubbleArea.revalidate();
+	                chatBubbleArea.repaint();
+
+	            } catch (Exception e) {
+	                e.printStackTrace();
+	            }
+	        }
+	    }.execute();
+	}
+
+	
 
 	private int calculateMbtiMatch(String myMbti, String otherMbti) {
 		System.out.println("💬 궁합 계산 시작 - 내 MBTI: " + myMbti + ", 상대 MBTI: " + otherMbti);
@@ -342,7 +414,8 @@ public class HomeView extends JPanel {
 
 			try {
 				// 1) 내가 속한 채팅방 목록 조회
-				ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + selfId);
+				ApiClient.HttpResult res = ApiClient.get("/api/chat/rooms/user/" + selfId, token);
+
 
 				if (!res.isOk()) {
 					JOptionPane.showMessageDialog(this, "서버 연결 오류");
@@ -499,10 +572,12 @@ public class HomeView extends JPanel {
 		h.setForeground(defaultFontColor);
 		wrap.add(h, BorderLayout.NORTH);
 
-		BubbleArea bubbles = new BubbleArea(color3);
-		bubbles.addLeft("안녕하세요! 매칭을 축하드립니다.");
+		chatBubbleArea = new BubbleArea(color3);
+		chatBubbleArea.addLeft("안녕하세요! 매칭을 축하드립니다.");
 
-		JScrollPane sp = new JScrollPane(bubbles);
+
+		JScrollPane sp = new JScrollPane(chatBubbleArea);
+
 		sp.setBorder(null);
 		// 스크롤 패널 배경색을 채팅 패널 배경색과 일치
 		sp.getViewport().setBackground(color3);
@@ -529,7 +604,10 @@ public class HomeView extends JPanel {
 		bottom.add(send, BorderLayout.EAST);
 
 		wrap.add(bottom, BorderLayout.SOUTH);
+		loadChatRooms();    // ← 추가
+
 		return wrap;
+		
 	}
 
 	// ========================== 왼쪽 내 정보 패널 ==========================
@@ -870,48 +948,47 @@ public class HomeView extends JPanel {
 
 			chatBtn.addActionListener(e -> {
 
-				User me = mainApp.getLoggedInUser();
-				if (me == null) {
-					JOptionPane.showMessageDialog(this, "로그인이 필요합니다.");
-					return;
-				}
+			    User me = mainApp.getLoggedInUser();
+			    if (me == null) {
+			        JOptionPane.showMessageDialog(this, "로그인이 필요합니다.");
+			        return;
+			    }
 
-				String myId = me.getId(); // 로그인 ID
-				String myName = me.getUserName();
+			    String myId = me.getId();
+			    String myName = me.getUserName();
+			    String targetName = nameLabel.getText();
+			    String targetId = profileUserId;
 
-				String targetName = nameLabel.getText();
-				String targetId = profileUserId; // 🔥 이 변수 필요! 아래에서 설명함
+			    try {
+			        // 🔥 여기 추가 — 토큰 가져오기
+			        String token = mainApp.getJwtToken();
 
-				try {
-					// 1) JSON 만들기
-					JSONObject json = new JSONObject();
-					json.put("user1", myId);
-					json.put("user1Name", myName);
-					json.put("user2", targetId);
-					json.put("user2Name", targetName);
+			        JSONObject json = new JSONObject();
+			        json.put("user1", myId);
+			        json.put("user1Name", myName);
+			        json.put("user2", targetId);
+			        json.put("user2Name", targetName);
 
-					// 2) 백엔드 호출해서 채팅방 생성 또는 기존방 가져오기
-					ApiClient.HttpResult res = ApiClient.post("/chat/createRoom", json.toString());
+			        ApiClient.HttpResult res = ApiClient.post("/api/chat/rooms", json.toString(), token);
 
-					if (!res.isOk()) {
-						JOptionPane.showMessageDialog(this, "채팅방 생성 실패: " + res.body);
-						return;
-					}
+			        if (!res.isOk()) {
+			            JOptionPane.showMessageDialog(this, "채팅방 생성 실패: " + res.body);
+			            return;
+			        }
 
-					JSONObject obj = new JSONObject(res.body);
-					String roomId = obj.getString("roomId");
+			        JSONObject obj = new JSONObject(res.body);
+			        String roomId = obj.getString("roomId");
 
-					// 3) ChatView로 이동
-					ChatView chatView = mainApp.getChatView();
-					chatView.startChat(roomId, myId, myName, targetId, targetName);
+			        ChatView chatView = mainApp.getChatView();
+			        chatView.startChat(roomId, myId, myName, targetId, targetName);
+			        mainApp.showView(MainApp.CHAT);
 
-					mainApp.showView(MainApp.CHAT);
-
-				} catch (Exception ex) {
-					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, "채팅 오류: " + ex.getMessage());
-				}
+			    } catch (Exception ex) {
+			        ex.printStackTrace();
+			        JOptionPane.showMessageDialog(this, "채팅 오류: " + ex.getMessage());
+			    }
 			});
+
 
 			panel.add(chatBtn);
 

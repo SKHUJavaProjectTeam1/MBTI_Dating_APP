@@ -242,7 +242,8 @@ public class SignupView extends JPanel {
         );
 
         try {
-            HttpResult res = ApiClient.post("/users", json);
+        	HttpResult res = ApiClient.post("/api/users", json);
+
 
             if (res.isOk()) {
                 JOptionPane.showMessageDialog(this, "회원가입 성공! 로그인 화면으로 이동합니다.");

@@ -152,7 +152,9 @@ public class MatchSocketHandler {
             // 2) 매칭 전략 적용
             CompositeMatchStrategy strategy = new CompositeMatchStrategy()
                     .add(new MbtiScoreStrategy())
-                    .add(new GenderScoreStrategy());
+                    .add(new GenderScoreStrategy())
+                    .add(new AgeScoreStrategy()) ;
+            
 
             User best = strategy.findMatch(me, candidateUsers);
 

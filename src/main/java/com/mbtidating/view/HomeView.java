@@ -118,141 +118,102 @@ public class HomeView extends JPanel {
 
 	// 이하는 서버 통신 관련 코드로, 디자인 변경 없이 유지합니다.
 	public void loadProfilesFromServer() {
-		new javax.swing.SwingWorker<Void, Void>() {
-			String response = null;
+	    new javax.swing.SwingWorker<Void, Void>() {
 
-			@Override
-			protected Void doInBackground() throws Exception {
-				String token = mainApp.getJwtToken();
-				ApiClient.HttpResult res = ApiClient.get("/api/users", token);
+	        String response = null;
 
+	        @Override
+	        protected Void doInBackground() throws Exception {
 
-				if (res.isOk()) {
-					response = res.body;
-				} else {
-					System.err.println("💥 사용자 목록 조회 실패: " + res.code + " / " + res.body);
-				}
-				return null;
-			}
+	            User me = mainApp.getLoggedInUser();
+	            if (me == null) return null;
 
-			@Override
-			protected void done() {
-				if (response == null)
-					return;
+	            String token = mainApp.getJwtToken();
 
-				try {
-					User me = mainApp.getLoggedInUser();
-					if (me == null)
-						return;
+	            // 🔥 기존 "/api/users" 대신 추천 전용 API 호출
+	            ApiClient.HttpResult res =
+	                    ApiClient.get("/api/users/recommend/" + me.getId(), token);
 
-					String myGender = me.getGender(); // "m" or "f"
-					String myMbtiStr = buildMbti(me.getMbti()); // 예: "INTJ"
-					JSONArray arr = new JSONArray(response);
+	            if (res.isOk()) {
+	                response = res.body;
+	            } else {
+	                System.err.println("💥 추천 사용자 조회 실패: "
+	                        + res.code + " / " + res.body);
+	            }
+	            return null;
+	        }
 
-					// 1) 성별로 1차 필터 + Candidate 리스트 만들기
-					List<Candidate> candidates = new ArrayList<>();
+	        @Override
+	        protected void done() {
+	            if (response == null) return;
 
-					for (int i = 0; i < arr.length(); i++) {
-						JSONObject obj = arr.getJSONObject(i);
-						String g = obj.optString("gender", "m");
+	            try {
+	                JSONArray arr = new JSONArray(response);
 
-						// 자기 자신 제외
-						if (obj.optString("id").equals(me.getId()))
-							continue;
+	                // 추천 결과는 이미 정렬되어 있음
+	                for (int i = 0; i < cards.length; i++) {
 
-						// 내가 남자면 여자만, 내가 여자면 남자만
-						if (g.equalsIgnoreCase(myGender))
-							continue;
+	                    if (i >= arr.length()) {
+	                        // 남은 칸은 비움
+	                        cards[i].setProfile("-", "-", "-", 0, "1", 0, null);
+	                        continue;
+	                    }
 
-						// MBTI 문자열 만들기
-						String mbtiStr = "-";
-						JSONObject mbti = obj.optJSONObject("mbti");
-						if (mbti != null) {
-							String ei = mbti.optString("EI", "").toUpperCase();
-							String sn = mbti.optString("SN", "").toUpperCase();
-							String tf = mbti.optString("TF", "").toUpperCase();
-							String jp = mbti.optString("JP", "").toUpperCase();
-							if (ei.length() == 1 && sn.length() == 1 && tf.length() == 1 && jp.length() == 1) {
-								mbtiStr = ei + sn + tf + jp;
-							}
-						}
+	                    JSONObject obj = arr.getJSONObject(i);
 
-						int score = calculateMbtiMatch(myMbtiStr, mbtiStr);
-						candidates.add(new Candidate(obj, mbtiStr, score));
-					}
+	                    String name = obj.optString("userName", "이름 없음");
+	                    String genderKor =
+	                            obj.optString("gender", "m").equalsIgnoreCase("m")
+	                                    ? "남자"
+	                                    : "여자";
 
-					// 후보가 없으면 카드 초기화 후 종료
-					if (candidates.isEmpty()) {
-						for (int i = 0; i < cards.length; i++) {
-							cards[i].setProfile("-", "-", "-", 0, "1", 0, null);
+	                    int age = obj.optInt("age", 0);
 
-						}
-						return;
-					}
+	                    // 🔥 서버가 매칭 점수를 내려줌
+	                    int score = obj.optInt("matchRate", 0);
 
-					// 2) 점수 높은 순으로 정렬 (동점이면 랜덤 섞기)
-					Collections.shuffle(candidates); // 동점일 때 순서 다양화
-					candidates.sort(Comparator.comparingInt((Candidate c) -> c.score).reversed());
+	                    // 프로필 이미지
+	                    String profileNum = obj.optString("profileImg", "1");
+	                    if ("default.jpg".equals(profileNum)) {
+	                        profileNum = String.valueOf(1 + (int) (Math.random() * 5));
+	                    }
 
-					// 3) 다양한 MBTI를 위해, 같은 MBTI는 최대 2명까지만 우선 선택
-					List<Candidate> picked = new ArrayList<>();
-					Map<String, Integer> mbtiCount = new HashMap<>();
-					int maxPerMbti = 2; // MBTI 별 최대 인원
+	                    // MBTI 문자열 복원
+	                    String mbtiStr = "-";
+	                    JSONObject mbti = obj.optJSONObject("mbti");
+	                    if (mbti != null) {
+	                        String ei = mbti.optString("EI", "").toUpperCase();
+	                        String sn = mbti.optString("SN", "").toUpperCase();
+	                        String tf = mbti.optString("TF", "").toUpperCase();
+	                        String jp = mbti.optString("JP", "").toUpperCase();
+	                        if (ei.length() == 1 && sn.length() == 1 &&
+	                            tf.length() == 1 && jp.length() == 1) {
+	                            mbtiStr = ei + sn + tf + jp;
+	                        }
+	                    }
 
-					for (Candidate c : candidates) {
-						String key = c.mbti;
-						int cnt = mbtiCount.getOrDefault(key, 0);
-						if (cnt >= maxPerMbti)
-							continue; // 이 MBTI는 충분히 뽑음
+	                    String userId = obj.optString("id");
 
-						picked.add(c);
-						mbtiCount.put(key, cnt + 1);
-						if (picked.size() == cards.length)
-							break;
-					}
+	                    // 🔥 카드 업데이트
+	                    cards[i].setProfile(
+	                            name,
+	                            mbtiStr,
+	                            genderKor,
+	                            age,
+	                            profileNum,
+	                            score,
+	                            userId
+	                    );
+	                }
 
-					// 4) 아직 카드가 남았으면, 남은 후보에서 채우기 (MBTI 중복 허용)
-					if (picked.size() < cards.length) {
-						for (Candidate c : candidates) {
-							if (picked.contains(c))
-								continue;
-							picked.add(c);
-							if (picked.size() == cards.length)
-								break;
-						}
-					}
+	            } catch (Exception e) {
+	                e.printStackTrace();
+	            }
+	        }
 
-					// 5) 최종 picked 리스트로 카드 세팅
-					for (int i = 0; i < cards.length; i++) {
-						if (i < picked.size()) {
-							Candidate c = picked.get(i);
-							JSONObject obj = c.obj;
-
-							String name = obj.optString("userName", "이름 없음");
-							String genderKor = obj.optString("gender", "m").equals("m") ? "남자" : "여자";
-							int age = obj.optInt("age", 0);
-
-							String profileNum = obj.optString("profileImg", "1");
-							if ("default.jpg".equals(profileNum)) {
-								profileNum = String.valueOf(1 + (int) (Math.random() * 5));
-							}
-
-							cards[i].setProfile(name, c.mbti, genderKor, age, profileNum, c.score,
-				                    obj.optString("id"));
-
-						} else {
-							cards[i].setProfile("-", "-", "-", 0, "1", 0, null);
-
-						}
-					}
-
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-
-		}.execute(); 
+	    }.execute();
 	}
+
 	
 	private void loadChatRooms() {
 	    new javax.swing.SwingWorker<Void, Void>() {

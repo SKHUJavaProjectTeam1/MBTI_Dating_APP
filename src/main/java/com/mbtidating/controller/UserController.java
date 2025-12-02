@@ -1,6 +1,8 @@
 package com.mbtidating.controller;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.mbtidating.config.JwtUtil;
 import com.mbtidating.dto.User;
 import com.mbtidating.dto.UserUpdateRequest;
+import com.mbtidating.handler.CompositeMatchStrategy;
+import com.mbtidating.handler.GenderScoreStrategy;
+import com.mbtidating.handler.MbtiScoreStrategy;
 import com.mbtidating.model.LoginRequest;
 import com.mbtidating.model.SignupRequest;
 import com.mbtidating.repository.UserRepository;
@@ -39,6 +44,7 @@ public class UserController {
     public List<User> list() {
         return userRepository.findAll();
     }
+    
 
     // 🔹 회원가입
     @PostMapping
@@ -100,6 +106,85 @@ public class UserController {
         return userRepository.save(user);
     }
 
+    @GetMapping("/recommend/{userId}")
+    public List<User> recommend(@PathVariable String userId) {
+
+        // 1) 본인 정보 불러오기
+        User me = userRepository.findByLoginId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        // 2) 전체 유저 목록
+        List<User> all = userRepository.findAll();
+
+        // 3) 스코어 전략 결합
+        CompositeMatchStrategy strategy = new CompositeMatchStrategy()
+                .add(new MbtiScoreStrategy())
+                .add(new GenderScoreStrategy());
+                // .add(new AgeScoreStrategy()); → 필요하면 추가
+
+        // 4) 점수 계산 + 스케일업 적용 (색상 문제 해결)
+        for (User u : all) {
+            if (!u.getId().equals(me.getId())) {
+                int score = strategy.calculateScore(me, u);
+                u.setMatchRate(score * 10); // 🔥 점수 스케일업
+            } else {
+                u.setMatchRate(-1);
+            }
+        }
+
+        // 5) 자기 자신 제외 + 점수 기준 정렬
+        List<User> sorted = all.stream()
+                .filter(u -> !u.getId().equals(me.getId()))
+                .sorted((a, b) -> Integer.compare(b.getMatchRate(), a.getMatchRate()))
+                .toList();
+
+        // =========== 🔥 6) 다양성(Variety) 추가 ===========
+
+        // 상위 20%는 유지, 나머지는 랜덤 섞기
+        int topCount = Math.max(1, (int)(sorted.size() * 0.2));
+
+        List<User> top = new ArrayList<>(sorted.subList(0, topCount));
+        List<User> rest = new ArrayList<>(sorted.subList(topCount, sorted.size()));
+
+        Collections.shuffle(rest);  // 🔥 다양성 추가 (랜덤)
+
+        List<User> finalList = new ArrayList<>();
+        finalList.addAll(top);
+        finalList.addAll(rest);
+
+        // =========== 🔥 7) 같은 MBTI 3명 이상 제한 ===========
+
+        Map<String, Integer> mbtiLimit = new HashMap<>();
+        int maxPerMbti = 3;
+
+        List<User> result = new ArrayList<>();
+
+        for (User u : finalList) {
+            String mbti = buildMbti(u.getMbti());
+            int count = mbtiLimit.getOrDefault(mbti, 0);
+
+            if (count < maxPerMbti) {
+                result.add(u);
+                mbtiLimit.put(mbti, count + 1);
+            }
+        }
+
+        return result;
+    }
+
+
+    // MBTI Map → 문자열 변환
+    private String buildMbti(Map<String, String> map) {
+        if (map == null) return "NULL";
+        try {
+            return (map.get("EI") + map.get("SN") + map.get("TF") + map.get("JP")).toUpperCase();
+        } catch (Exception e) {
+            return "NULL";
+        }
+    }
+
+
+    
     // 🔹 로그인
     @PostMapping("/login")
     public User login(@RequestBody LoginRequest req) {

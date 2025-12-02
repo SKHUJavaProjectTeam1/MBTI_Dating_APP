@@ -549,7 +549,8 @@ public class ChatView extends JPanel {
 
     private void loadChatHistory() {
         try {
-            ApiClient.HttpResult result = ApiClient.get("/chat/" + roomId);
+        	ApiClient.HttpResult result = ApiClient.get("/api/chat/messages/" + roomId);
+
             if (result == null || result.body == null || result.body.isEmpty()) return;
 
             JSONObject root = new JSONObject(result.body);

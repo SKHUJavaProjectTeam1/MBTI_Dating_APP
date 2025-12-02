@@ -2,6 +2,7 @@ package com.mbtidating.dto;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -31,6 +32,9 @@ public class User {
 
     private Tokens tokens;       // 토큰 객체 (내부 static class로 분리)
 
+    @Transient
+    private Integer matchRate;
+    
     @Data
     public static class Tokens {
         private String access;

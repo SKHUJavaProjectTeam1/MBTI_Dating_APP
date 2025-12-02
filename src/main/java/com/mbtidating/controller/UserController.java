@@ -1,6 +1,7 @@
 package com.mbtidating.controller;
 
 import java.time.Instant;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -67,6 +68,7 @@ public class UserController {
                     "이미 사용 중인 닉네임입니다."
             );
         }
+        
 
         // ✅ 3) User 엔티티 생성 및 비밀번호 해싱
         User user = new User();
@@ -116,61 +118,90 @@ public class UserController {
         // 2) 전체 유저 목록
         List<User> all = userRepository.findAll();
 
-        // 3) 스코어 전략 결합
-        CompositeMatchStrategy strategy = new CompositeMatchStrategy()
-                .add(new MbtiScoreStrategy())
-                .add(new GenderScoreStrategy());
-                // .add(new AgeScoreStrategy()); → 필요하면 추가
+        // 2-1) 성별 정규화
+        String myGender = normalizeGender(me.getGender());
 
-        // 4) 점수 계산 + 스케일업 적용 (색상 문제 해결)
-        for (User u : all) {
-            if (!u.getId().equals(me.getId())) {
-                int score = strategy.calculateScore(me, u);
-                u.setMatchRate(score * 10); // 🔥 점수 스케일업
-            } else {
-                u.setMatchRate(-1);
-            }
+     // 2-2) 성별 필터링 (성별이 맞지 않는 사람 제외)
+        List<User> genderFiltered = all.stream()
+                .filter(u -> !u.getId().equals(me.getId()))
+                .filter(u -> {
+                    String g = normalizeGender(u.getGender());
+                    
+                    // 남자는 여자만 추천
+                    if (myGender.equals("m")) return g.equals("f");
+
+                    // 여자는 남자만 추천
+                    if (myGender.equals("f")) return g.equals("m");
+
+                    // 기타는 남·여 모두 추천
+                    return g.equals("m") || g.equals("f");
+                })
+                .toList();
+
+
+     // 3) 스코어 전략 결합 (기타는 성별 점수 제외)
+        CompositeMatchStrategy strategy = new CompositeMatchStrategy()
+                .add(new MbtiScoreStrategy());
+
+        if (!myGender.equals("other")) {   // 남/여일 때만 성별 점수 적용
+            strategy.add(new GenderScoreStrategy());
         }
 
-        // 5) 자기 자신 제외 + 점수 기준 정렬
-        List<User> sorted = all.stream()
-                .filter(u -> !u.getId().equals(me.getId()))
+
+        // 4) 점수 계산 + 스케일업
+        for (User u : genderFiltered) {
+            int score = strategy.calculateScore(me, u);
+            u.setMatchRate(score * 10);
+        }
+
+        // 5) 점수 기준 정렬
+        List<User> sorted = genderFiltered.stream()
                 .sorted((a, b) -> Integer.compare(b.getMatchRate(), a.getMatchRate()))
                 .toList();
 
-        // =========== 🔥 6) 다양성(Variety) 추가 ===========
-
-        // 상위 20%는 유지, 나머지는 랜덤 섞기
-        int topCount = Math.max(1, (int)(sorted.size() * 0.2));
-
+        // 6) 다양성(Variety) 추가 (상위 20% 유지 + 나머지 랜덤)
+        int topCount = Math.max(1, (int) (sorted.size() * 0.2));
         List<User> top = new ArrayList<>(sorted.subList(0, topCount));
         List<User> rest = new ArrayList<>(sorted.subList(topCount, sorted.size()));
 
-        Collections.shuffle(rest);  // 🔥 다양성 추가 (랜덤)
+        Collections.shuffle(rest);
 
         List<User> finalList = new ArrayList<>();
         finalList.addAll(top);
         finalList.addAll(rest);
 
-        // =========== 🔥 7) 같은 MBTI 3명 이상 제한 ===========
-
-        Map<String, Integer> mbtiLimit = new HashMap<>();
+        // 7) 같은 MBTI 3명 이상 제한
+        Map<String, Integer> mbtiCount = new HashMap<>();
         int maxPerMbti = 3;
-
         List<User> result = new ArrayList<>();
 
         for (User u : finalList) {
             String mbti = buildMbti(u.getMbti());
-            int count = mbtiLimit.getOrDefault(mbti, 0);
+            int count = mbtiCount.getOrDefault(mbti, 0);
 
             if (count < maxPerMbti) {
                 result.add(u);
-                mbtiLimit.put(mbti, count + 1);
+                mbtiCount.put(mbti, count + 1);
             }
         }
 
         return result;
     }
+
+
+    // 🔥 성별 정규화 함수
+    private String normalizeGender(String g) {
+        if (g == null) return "other";
+        g = g.trim().toLowerCase();
+
+        if (g.startsWith("남") || g.equals("m") || g.equals("male"))
+            return "m";
+        if (g.startsWith("여") || g.equals("f") || g.equals("female"))
+            return "f";
+
+        return "other"; // 기타
+    }
+
 
 
     // MBTI Map → 문자열 변환

@@ -90,6 +90,7 @@ public class MainApp extends JFrame {
     public void setLoggedInUser(User user) {
         this.loggedInUser = user;
         if (homeView != null) homeView.updateUserInfo(user);
+        homeView.loadProfilesFromServer();  // ✅ 이 줄 추가
     }
 
     public User getLoggedInUser() {

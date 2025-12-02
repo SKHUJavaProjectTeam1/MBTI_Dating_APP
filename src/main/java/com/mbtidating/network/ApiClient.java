@@ -6,7 +6,8 @@ import java.nio.charset.StandardCharsets;
 
 public class ApiClient {
 
-    private static final String BASE_URL = "http://localhost:8080/api";
+	private static final String BASE_URL = "http://localhost:8080";
+
     private static final int CONNECT_TIMEOUT = 5000;
     private static final int READ_TIMEOUT = 10000;
     
@@ -61,6 +62,12 @@ public class ApiClient {
     public static HttpResult get(String path) throws IOException {
         return sendRequest("GET", BASE_URL + path, null, null);
     }
+    
+    //삭제
+    public static HttpResult delete(String path, String jwtToken) throws IOException {
+        return sendRequest("DELETE", BASE_URL + path, null, jwtToken);
+    }
+
 
     // ✅ JWT 토큰 포함 GET (필요하면 사용)
     public static HttpResult get(String path, String jwtToken) throws IOException {

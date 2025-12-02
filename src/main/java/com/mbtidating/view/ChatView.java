@@ -7,6 +7,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -17,6 +19,40 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 public class ChatView extends JPanel {
+
+    // ========================== 공통 예쁜 버튼 ==========================
+    static class PrettyButton extends JButton {
+        public PrettyButton(String text) {
+            super(text);
+            setFocusPainted(false);
+            setForeground(Color.WHITE);
+            setBackground(new Color(190, 150, 210));
+            setBorder(new EmptyBorder(8, 16, 8, 16));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setContentAreaFilled(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            Color bg = getModel().isRollover()
+                    ? new Color(210, 170, 230)
+                    : new Color(190, 150, 210);
+
+            g2.setColor(bg);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+
+            g2.setColor(Color.WHITE);
+            FontMetrics fm = g2.getFontMetrics();
+            int x = (getWidth() - fm.stringWidth(getText())) / 2;
+            int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+            g2.drawString(getText(), x, y);
+
+            g2.dispose();
+        }
+    }
 
     private final MainApp mainApp;
     private WebSocketClientChat socketClient;
@@ -40,8 +76,9 @@ public class ChatView extends JPanel {
     // 오른쪽 채팅 UI 요소
     private final JPanel messageArea = new JPanel();
     private final JTextField inputField = new JTextField();
+    // (지금은 PrettyButton을 쓰니까 sendButton은 안 써도 됨. 남겨두기만 함)
     private final JButton sendButton = new JButton();
-    private final JLabel topNameLabel = new JLabel("채팅 중...", SwingConstants.LEFT);
+    private final JLabel topNameLabel = new JLabel("상대: -", SwingConstants.LEFT);  // ✅ 상단 이름 라벨
 
     public ChatView(MainApp mainApp) {
         this.mainApp = mainApp;
@@ -125,9 +162,61 @@ public class ChatView extends JPanel {
         bottom.setOpaque(false);
         bottom.add(refreshBtn);
         leftPanel.add(bottom, BorderLayout.SOUTH);
+        
+        JButton deleteBtn = new JButton("선택한 방 삭제");
+        deleteBtn.setBackground(new Color(255, 200, 200));
+        deleteBtn.setFocusPainted(false);
+
+        deleteBtn.addActionListener(e -> {
+            RoomItem item = roomList.getSelectedValue();
+            
+            if (item == null) {
+                JOptionPane.showMessageDialog(this, "삭제할 방을 선택하세요!");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(
+                this, 
+                "정말 삭제할까요?", 
+                "채팅방 삭제", 
+                JOptionPane.YES_NO_OPTION
+            );
+
+            if (confirm != JOptionPane.YES_OPTION) return;
+
+            deleteChatRoom(item.roomId);
+        });
+
+        bottom.add(Box.createVerticalStrut(10));
+        bottom.add(deleteBtn);
+
 
         return leftPanel;
     }
+    
+    private void deleteChatRoom(String roomId) {
+        try {
+            User me = mainApp.getLoggedInUser();
+            String token = mainApp.getJwtToken();
+
+            ApiClient.HttpResult res =
+                    ApiClient.delete("/api/chat/rooms/" + roomId, token);
+
+            if (!res.isOk()) {
+                JOptionPane.showMessageDialog(this, "삭제 실패: " + res.body);
+                return;
+            }
+
+            JOptionPane.showMessageDialog(this, "삭제되었습니다.");
+
+            refreshRoomList();  // 삭제 후 목록 새로고침
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
+        }
+    }
+
 
     // ============================ 리스트 셀 렌더러 ============================
 
@@ -164,10 +253,10 @@ public class ChatView extends JPanel {
                                                       int index, boolean isSelected, boolean cellHasFocus) {
             this.isSelected = isSelected;
 
-            String title = (value.partnerName != null) ? value.partnerName : "(상대 없음)" ;
+            String title = (value.partnerName != null) ? value.partnerName : "(상대 없음)";
             nameLabel.setText(title);
 
-            String firstLetter = (!title.isEmpty()) ? title.substring(0, 1) : "?" ;
+            String firstLetter = (!title.isEmpty()) ? title.substring(0, 1) : "?";
             iconLabel.setText(firstLetter);
 
             timeLabel.setText(getRelativeTime(value.lastMessageTime));
@@ -204,8 +293,9 @@ public class ChatView extends JPanel {
             super(text);
             this.bgColor = bgColor;
             setOpaque(false);
-            setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-            setForeground(Color.BLACK);
+            setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+            setForeground(new Color(50, 50, 50));
+            setFont(new Font("맑은 고딕", Font.PLAIN, 14));
         }
 
         @Override
@@ -223,7 +313,7 @@ public class ChatView extends JPanel {
     // ============================ 시간 포맷팅 유틸 ============================
 
     private String getRelativeTime(String isoDateTime) {
-        if (isoDateTime == null || isoDateTime.isEmpty()) return "" ;
+        if (isoDateTime == null || isoDateTime.isEmpty()) return "";
 
         try {
             LocalDateTime time = LocalDateTime.parse(isoDateTime, DateTimeFormatter.ISO_DATE_TIME);
@@ -232,14 +322,14 @@ public class ChatView extends JPanel {
             long diffMinutes = ChronoUnit.MINUTES.between(time, now);
             long diffDays = ChronoUnit.DAYS.between(time.toLocalDate(), now.toLocalDate());
 
-            if (diffMinutes < 1) return "방금 전" ;
-            else if (diffMinutes < 60) return diffMinutes + "분 전" ;
+            if (diffMinutes < 1) return "방금 전";
+            else if (diffMinutes < 60) return diffMinutes + "분 전";
             else if (diffDays == 0) return time.format(DateTimeFormatter.ofPattern("a h:mm"));
-            else if (diffDays == 1) return "어제" ;
+            else if (diffDays == 1) return "어제";
             else return time.format(DateTimeFormatter.ofPattern("M월 d일"));
 
         } catch (Exception e) {
-            return "" ;
+            return "";
         }
     }
 
@@ -260,7 +350,7 @@ public class ChatView extends JPanel {
 
         @Override
         public String toString() {
-            return partnerName != null ? partnerName : "(상대 없음)" ;
+            return partnerName != null ? partnerName : "(상대 없음)";
         }
     }
 
@@ -274,7 +364,8 @@ public class ChatView extends JPanel {
             this.userId = u.getId();          // 내 ID
             this.selfName = u.getUserName();  // 내 닉네임
 
-            ApiClient.HttpResult res = ApiClient.get("/chat/rooms/" + userId);
+            ApiClient.HttpResult res = ApiClient.get("/api/chat/rooms/user/" + userId);
+
             if (!res.isOk() || res.body == null || res.body.isEmpty()) {
                 roomListModel.clear();
                 return;
@@ -284,11 +375,11 @@ public class ChatView extends JPanel {
             roomListModel.clear();
 
             for (int i = 0; i < arr.length(); i++) {
-                JSONObject room = arr.getJSONObject(i);
+                JSONObject room = new JSONObject(arr.get(i).toString());
                 String rId = room.getString("roomId");
 
                 String pId = null;
-                String pName = "(상대 없음)" ;
+                String pName = null;
 
                 if (room.has("participants")) {
                     JSONArray ps = room.getJSONArray("participants");
@@ -299,10 +390,18 @@ public class ChatView extends JPanel {
 
                         if (!uid.isEmpty() && !uid.equals(userId)) {
                             pId = uid;
-                            pName = !uname.isEmpty() ? uname : uid;
+                            if (uname != null && !uname.isEmpty()) {
+                                pName = uname;
+                            } else {
+                                pName = uid;  // 닉네임이 없으면 userId라도 표시
+                            }
                             break;
                         }
                     }
+                }
+
+                if (pName == null || pName.trim().isEmpty()) {
+                    pName = "(상대 없음)";
                 }
 
                 String time = room.optString("lastMessageAt", "");
@@ -323,52 +422,45 @@ public class ChatView extends JPanel {
         rightPanel.setBackground(Color.WHITE);
         rightPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // 상단 영역
-        JPanel topBox = new JPanel(new BorderLayout());
-        topBox.setBackground(colorTop);
-        topBox.setPreferredSize(new Dimension(200, 70));
-        topBox.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        // ============================ 상단 프로필 영역 ============================
+        JPanel topBox = new GradientPanel(
+                new Color(255, 235, 240),   // 연핑크
+                new Color(210, 255, 245)    // 민트
+        );
+        topBox.setLayout(new BorderLayout());
+        topBox.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
+        topBox.setPreferredSize(new Dimension(200, 80));
 
-        JLabel avatar = new JLabel(new ImageIcon("images/default_profile.png"));
-        avatar.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        topBox.add(avatar, BorderLayout.WEST);
+        JLabel avatar = new JLabel();
+        avatar.setPreferredSize(new Dimension(48, 48));
+        avatar.setIcon(new ImageIcon(
+                new ImageIcon("images/default_profile.png")
+                        .getImage()
+                        .getScaledInstance(48, 48, Image.SCALE_SMOOTH)
+        ));
 
-        topNameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-        topBox.add(topNameLabel, BorderLayout.CENTER);
+        // ✅ topNameLabel 사용 (이제 여기서 실제로 붙인다)
+        topNameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
+        topNameLabel.setForeground(new Color(60, 50, 70));
+        topNameLabel.setText("상대: -");
 
-        JButton homeButton = new JButton("홈으로") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getBackground());
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-                g2.dispose();
-                super.paintComponent(g);
-            }
+        JPanel leftProfile = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        leftProfile.setOpaque(false);
+        leftProfile.add(avatar);
+        leftProfile.add(topNameLabel);
 
-            @Override
-            protected void paintBorder(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(colorOther.darker());
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
-                g2.dispose();
-            }
-        };
-
-        homeButton.setFont(new Font("맑은 고딕", Font.BOLD, 14));
-        homeButton.setForeground(new Color(80, 80, 80));
-        homeButton.setBackground(Color.WHITE);
-        homeButton.setOpaque(false);
-        homeButton.setFocusPainted(false);
-        homeButton.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
-
+        PrettyButton homeButton = new PrettyButton("홈으로");
         homeButton.addActionListener(e -> {
             closeChat();
             mainApp.showView(MainApp.HOME);
         });
-        topBox.add(homeButton, BorderLayout.EAST);
+
+        JPanel rightBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rightBox.setOpaque(false);
+        rightBox.add(homeButton);
+
+        topBox.add(leftProfile, BorderLayout.WEST);
+        topBox.add(rightBox, BorderLayout.EAST);
 
         rightPanel.add(topBox, BorderLayout.NORTH);
 
@@ -380,28 +472,26 @@ public class ChatView extends JPanel {
         scroll.setBorder(null);
         rightPanel.add(scroll, BorderLayout.CENTER);
 
-        // 입력 박스
+        // ============================ 메시지 입력 영역 ============================
         JPanel bottomBox = new JPanel();
         bottomBox.setBackground(Color.WHITE);
         bottomBox.setLayout(new BoxLayout(bottomBox, BoxLayout.X_AXIS));
         bottomBox.setPreferredSize(new Dimension(0, 70));
-        bottomBox.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(220, 220, 220)));
+        bottomBox.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
-        inputField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-        inputField.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
+        inputField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
+        inputField.setBorder(BorderFactory.createLineBorder(new Color(220, 180, 200), 2, true));
+        inputField.setBackground(new Color(255, 250, 252));
         inputField.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+
+        PrettyButton sendBtn = new PrettyButton("✉ 보내기");
+        sendBtn.addActionListener(e -> sendMessage());
+        inputField.addActionListener(e -> sendMessage());
+
         bottomBox.add(inputField);
         bottomBox.add(Box.createRigidArea(new Dimension(10, 0)));
+        bottomBox.add(sendBtn);
 
-        sendButton.setIcon(new ImageIcon("images/submit.png"));
-        sendButton.setPreferredSize(new Dimension(50, 50));
-        sendButton.setFocusPainted(false);
-        sendButton.setBackground(colorMy);
-        sendButton.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        bottomBox.add(sendButton);
-
-        sendButton.addActionListener(e -> sendMessage());
-        inputField.addActionListener(e -> sendMessage());
         rightPanel.add(bottomBox, BorderLayout.SOUTH);
 
         return rightPanel;
@@ -435,17 +525,18 @@ public class ChatView extends JPanel {
                     + encodedUserId + "/"
                     + encodedUserName;
 
-
             socketClient = new WebSocketClientChat(wsUrl);
             socketClient.onJson(json -> SwingUtilities.invokeLater(() -> receiveJson(json)));
             socketClient.connect();
 
-
-            if (partnerName != null && !partnerName.isEmpty()) {
-                topNameLabel.setText("상대: " + partnerName);
-            } else {
-                topNameLabel.setText("채팅방: " + roomId.substring(0, Math.min(roomId.length(), 6)) + "...");
+            // ✅ 상단 이름 라벨 안전하게 세팅
+            String displayName = partnerName;
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = (partnerId != null && !partnerId.isEmpty())
+                        ? partnerId
+                        : "(상대 없음)";
             }
+            topNameLabel.setText("상대: " + displayName);
 
             addSystemMessage("채팅방에 입장했습니다.");
 
@@ -458,7 +549,8 @@ public class ChatView extends JPanel {
 
     private void loadChatHistory() {
         try {
-            ApiClient.HttpResult result = ApiClient.get("/chat/" + roomId);
+        	ApiClient.HttpResult result = ApiClient.get("/api/chat/messages/" + roomId);
+
             if (result == null || result.body == null || result.body.isEmpty()) return;
 
             JSONObject root = new JSONObject(result.body);
@@ -518,8 +610,7 @@ public class ChatView extends JPanel {
         sending = false;
     }
 
-    // 입퇴장 알림 있는 버전
-        private void receiveJson(JSONObject json) {
+    private void receiveJson(JSONObject json) {
         String type = json.optString("type");
 
         switch (type) {
@@ -553,48 +644,6 @@ public class ChatView extends JPanel {
                 addSystemMessage("알 수 없는 메시지: " + json);
         }
     }
-    // 입퇴장 알림 없는 버전
-//    private void receiveJson(JSONObject json) {
-//        String type = json.optString("type");
-//
-//        switch (type) {
-//
-//            case "JOIN": {
-//                JSONObject data = json.getJSONObject("data");
-//                String joinedName = data.optString("userName", "알 수 없음");
-//
-//                // 🔥 UI 출력 X → 로그만
-//                System.out.println("[CHAT] JOIN: " + joinedName);
-//                break;
-//            }
-//
-//            case "CHAT": {
-//                JSONObject data = json.getJSONObject("data");
-//                String senderId = data.optString("senderId");
-//                String senderName = data.optString("senderName");
-//                String content = data.optString("content");
-//
-//                // 🔥 내가 보낸 메시지는 무시
-//                if (senderId.equals(userId)) return;
-//
-//                addOtherMessage(senderName + ": " + content);
-//                break;
-//            }
-//
-//            case "LEAVE": {
-//                JSONObject data = json.getJSONObject("data");
-//                String leftName = data.optString("userName", "알 수 없음");
-//
-//                // 🔥 UI 출력 X → 로그만
-//                System.out.println("[CHAT] LEAVE: " + leftName);
-//                break;
-//            }
-//
-//            default:
-//                System.out.println("[CHAT] Unknown Type: " + json);
-//        }
-//    }
-
 
     // ============================ 메시지 UI ============================
 
@@ -648,4 +697,21 @@ public class ChatView extends JPanel {
             addSystemMessage("채팅방을 나갔습니다.");
         }
     }
+
+    static class GradientPanel extends JPanel {
+        private final Color top, bottom;
+
+        public GradientPanel(Color top, Color bottom) {
+            this.top = top;
+            this.bottom = bottom;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setPaint(new GradientPaint(0, 0, top, 0, getHeight(), bottom));
+            g2.fillRect(0, 0, getWidth(), getHeight());
+        }
+    }
+
 }

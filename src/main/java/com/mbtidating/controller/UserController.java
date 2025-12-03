@@ -69,6 +69,8 @@ public class UserController {
             );
         }
         
+        
+        
 
         // ✅ 3) User 엔티티 생성 및 비밀번호 해싱
         User user = new User();
@@ -95,11 +97,18 @@ public class UserController {
             user.setMbti(mbtiMap);
         }
 
-        user.setProfileImg("default.jpg");
+     // 🔥 default 이미지면 서버에서 랜덤 이미지 부여
+        if (req.getProfileImg() == null || req.getProfileImg().isBlank() || req.getProfileImg().equals("default.jpg")) {
+            int random = 1 + (int)(Math.random() * 5);
+            user.setProfileImg(String.valueOf(random));
+        } else {
+            user.setProfileImg(req.getProfileImg());
+        }
+
+
         user.setCreatedAt(Instant.now());
         user.setLastLogin(Instant.now());
 
-        // 토큰은 회원가입 시점에는 빈 값으로 초기화
         User.Tokens tokens = new User.Tokens();
         tokens.setAccess("");
         tokens.setRefresh("");
@@ -121,32 +130,25 @@ public class UserController {
         // 2-1) 성별 정규화
         String myGender = normalizeGender(me.getGender());
 
-     // 2-2) 성별 필터링 (성별이 맞지 않는 사람 제외)
+        // 2-2) 성별 필터링 (성별이 맞지 않는 사람 제외)
         List<User> genderFiltered = all.stream()
                 .filter(u -> !u.getId().equals(me.getId()))
                 .filter(u -> {
                     String g = normalizeGender(u.getGender());
-                    
-                    // 남자는 여자만 추천
-                    if (myGender.equals("m")) return g.equals("f");
 
-                    // 여자는 남자만 추천
-                    if (myGender.equals("f")) return g.equals("m");
-
-                    // 기타는 남·여 모두 추천
-                    return g.equals("m") || g.equals("f");
+                    if (myGender.equals("m")) return g.equals("f"); // 남자는 여자만
+                    if (myGender.equals("f")) return g.equals("m"); // 여자는 남자만
+                    return g.equals("m") || g.equals("f");          // 기타의 경우 양쪽
                 })
                 .toList();
 
-
-     // 3) 스코어 전략 결합 (기타는 성별 점수 제외)
+        // 3) 스코어 전략 결합
         CompositeMatchStrategy strategy = new CompositeMatchStrategy()
                 .add(new MbtiScoreStrategy());
 
-        if (!myGender.equals("other")) {   // 남/여일 때만 성별 점수 적용
+        if (!myGender.equals("other")) { // 남/여일 때만 성별 점수
             strategy.add(new GenderScoreStrategy());
         }
-
 
         // 4) 점수 계산 + 스케일업
         for (User u : genderFiltered) {
@@ -159,11 +161,10 @@ public class UserController {
                 .sorted((a, b) -> Integer.compare(b.getMatchRate(), a.getMatchRate()))
                 .toList();
 
-        // 6) 다양성(Variety) 추가 (상위 20% 유지 + 나머지 랜덤)
+        // 6) 상위 20% + 나머지 랜덤
         int topCount = Math.max(1, (int) (sorted.size() * 0.2));
         List<User> top = new ArrayList<>(sorted.subList(0, topCount));
         List<User> rest = new ArrayList<>(sorted.subList(topCount, sorted.size()));
-
         Collections.shuffle(rest);
 
         List<User> finalList = new ArrayList<>();
@@ -185,8 +186,21 @@ public class UserController {
             }
         }
 
+        // 8) 🔥 profileImg가 default or null이면 랜덤 이미지 적용 + DB에 저장
+        for (User u : result) {
+            if (u.getProfileImg() == null
+                    || u.getProfileImg().isBlank()
+                    || u.getProfileImg().equals("default.jpg")) {
+
+                int random = 1 + (int)(Math.random() * 5);
+                u.setProfileImg(String.valueOf(random));
+                userRepository.save(u);     // 🔥 영구 저장
+            }
+        }
+
         return result;
     }
+
 
 
     // 🔥 성별 정규화 함수
@@ -300,24 +314,38 @@ public class UserController {
             @PathVariable("id") String id,
             @RequestBody UserUpdateRequest req) {
 
-        // ✅ 로그인 아이디 기준으로 유저 찾기
         User user = userRepository.findByLoginId(id)
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
 
-        // 닉네임(userName) 업데이트
+        // 닉네임 업데이트
         if (req.getUserName() != null && !req.getUserName().isBlank()) {
             user.setUserName(req.getUserName());
         }
 
-        user.setGender(req.getGender());
-        user.setAge(req.getAge());
+        // 성별 업데이트
+        if (req.getGender() != null && !req.getGender().isBlank()) {
+            user.setGender(req.getGender());
+        }
 
-        if (req.getMbti() != null) {   // NPE 방지용
+        // 나이 업데이트
+        if (req.getAge() != null) {
+            user.setAge(req.getAge());
+        }
+
+        // 프로필 이미지 업데이트
+        if (req.getProfileImg() != null && !req.getProfileImg().isBlank()) {
+            user.setProfileImg(req.getProfileImg());
+        }
+
+        // MBTI 업데이트 (null이면 기존값 유지)
+        if (req.getMbti() != null && !req.getMbti().isEmpty()) {
             user.setMbti(req.getMbti());
         }
 
         return userRepository.save(user);
     }
+
+
 
 }

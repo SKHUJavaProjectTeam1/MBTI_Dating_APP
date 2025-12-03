@@ -34,6 +34,7 @@ import java.util.Comparator;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -47,6 +48,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -173,10 +175,23 @@ public class HomeView extends JPanel {
 	                    int score = obj.optInt("matchRate", 0);
 
 	                    // 프로필 이미지
-	                    String profileNum = obj.optString("profileImg", "1");
-	                    if ("default.jpg".equals(profileNum)) {
-	                        profileNum = String.valueOf(1 + (int) (Math.random() * 5));
+	                 // 프로필 이미지 (숫자/문자열 구분 처리)
+	                    Object imgObj = obj.opt("profileImg");
+	                    String profileNum;
+
+	                    if (imgObj instanceof Number num) {
+	                        profileNum = String.valueOf(num.intValue());
+	                    } else {
+	                        profileNum = obj.optString("profileImg", "1");
 	                    }
+
+	                    // default, null 처리 (안전망)
+	                    if (profileNum == null || profileNum.isBlank() || profileNum.equals("default.jpg")) {
+	                        profileNum = "1";
+	                    }
+
+	                    
+
 
 	                    // MBTI 문자열 복원
 	                    String mbtiStr = "-";
@@ -283,35 +298,7 @@ public class HomeView extends JPanel {
 
 	
 
-	private int calculateMbtiMatch(String myMbti, String otherMbti) {
-		System.out.println("💬 궁합 계산 시작 - 내 MBTI: " + myMbti + ", 상대 MBTI: " + otherMbti);
-
-		if (myMbti == null || otherMbti == null || myMbti.length() != 4 || otherMbti.length() != 4)
-			return 0;
-
-		// 동일 MBTI는 감점 (예: 40점 고정)
-		if (myMbti.equals(otherMbti))
-			return 40;
-
-		// 이상형일 경우 100점
-		if (mbtiIdealMatches.containsKey(myMbti)) {
-			List<String> ideals = mbtiIdealMatches.get(myMbti);
-			if (ideals.contains(otherMbti)) {
-				return 100;
-			}
-		}
-
-		// 기본 점수: 알파벳 일치 수 × 25
-		int score = 0;
-		for (int i = 0; i < 4; i++) {
-			if (myMbti.charAt(i) == otherMbti.charAt(i)) {
-				score += 25;
-			}
-		}
-
-		return score;
-	}
-
+	
 	// ========================== 헤더 영역 (큰 변경 없음) ==========================
 	private JComponent buildHeader() {
 		JPanel header = new JPanel(new BorderLayout());
@@ -658,9 +645,13 @@ public class HomeView extends JPanel {
 
 			// 🔥 프로필 이미지 적용
 			String profileNum = user.getProfileImg();
-			if (profileNum == null || profileNum.equals("default.jpg")) {
-				profileNum = String.valueOf(1 + (int) (Math.random() * 5));
+
+			// default면 랜덤 1번만 적용하고 user에 저장
+			if (profileNum == null || profileNum.equals("default.jpg") || profileNum.isEmpty()) {
+			    profileNum = String.valueOf(1 + (int) (Math.random() * 5));
+			    user.setProfileImg(profileNum);   // 한 번만 랜덤 적용
 			}
+
 
 			String avatarPath = "/images/profile" + profileNum + ".png";
 
@@ -1242,205 +1233,258 @@ public class HomeView extends JPanel {
 	// ========================== 프로필 수정 다이얼로그 (생략 및 유지) ==========================
 	// ProfileEditDialog 클래스는 기능적 요소가 많으므로 디자인 변경 없이 기존 코드를 유지했습니다.
 	class ProfileEditDialog extends JDialog {
-		// ... (기존 코드와 동일하게 유지) ...
-		private final User user;
 
-		private final JTextField tfId = new JTextField();
-		private final JTextField tfUserName = new JTextField();
-		private final JTextField tfMbti = new JTextField();
-		private final JComboBox<String> cbGender = new JComboBox<>(new String[] { "남자", "여자" });
-		private final JSpinner spAge = new JSpinner(new SpinnerNumberModel(20, 1, 100, 1));
+	    private final User user;
 
-		ProfileEditDialog(Window owner, User user) {
-			super(owner, "프로필 수정", ModalityType.APPLICATION_MODAL);
-			this.user = user;
+	    private final JTextField tfId = new JTextField();
+	    private final JTextField tfUserName = new JTextField();
+	    private final JTextField tfMbti = new JTextField();
+	    private int selectedAvatar = 1;
 
-			// 디자인 개선: 다이얼로그 배경색을 color2로 변경
-			((JComponent) getContentPane()).setBackground(new Color(255, 240, 245));
+	    private final JComboBox<String> cbGender = new JComboBox<>(new String[]{"남자", "여자"});
+	    private final JSpinner spAge = new JSpinner(new SpinnerNumberModel(20, 1, 100, 1));
 
-			setLayout(new BorderLayout(10, 10));
-			((JComponent) getContentPane()).setBorder(new EmptyBorder(12, 12, 12, 12));
+	    ProfileEditDialog(Window owner, User user) {
+	        super(owner, "프로필 수정", ModalityType.APPLICATION_MODAL);
+	        this.user = user;
 
-			JPanel form = new JPanel(new GridBagLayout());
-			form.setOpaque(false); // 배경색 적용을 위해 투명하게 설정
-			GridBagConstraints c = new GridBagConstraints();
-			c.insets = new Insets(4, 4, 4, 4);
-			c.fill = GridBagConstraints.HORIZONTAL;
+	        setLayout(new BorderLayout(10, 10));
+	        ((JComponent) getContentPane()).setBackground(new Color(255, 240, 245));
+	        ((JComponent) getContentPane()).setBorder(new EmptyBorder(14, 14, 14, 14));
 
-			int row = 0;
+	        // ---------------------------
+	        // 1) 상단 아바타 선택 (가운데)
+	        // ---------------------------
+	        JPanel avatarTop = new JPanel();
+	        avatarTop.setOpaque(false);
+	        avatarTop.setLayout(new BoxLayout(avatarTop, BoxLayout.Y_AXIS));
 
-			// 아이디 (읽기 전용)
-			c.gridx = 0;
-			c.gridy = row;
-			form.add(new JLabel("아이디"), c);
-			c.gridx = 1;
-			tfId.setEditable(false);
-			form.add(tfId, c);
-			row++;
+	        JLabel avatarTitle = new JLabel("캐릭터 선택");
+	        avatarTitle.setFont(new Font("맑은 고딕", Font.BOLD, 14));
+	        avatarTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-			// 닉네임
-			c.gridx = 0;
-			c.gridy = row;
-			form.add(new JLabel("닉네임"), c);
-			c.gridx = 1;
-			form.add(tfUserName, c);
-			row++;
+	        JPanel selector = buildAvatarSelector();
+	        selector.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-			// MBTI
-			c.gridx = 0;
-			c.gridy = row;
-			form.add(new JLabel("MBTI (예: INTJ)"), c);
-			c.gridx = 1;
-			form.add(tfMbti, c);
-			row++;
+	        avatarTop.add(avatarTitle);
+	        avatarTop.add(Box.createVerticalStrut(8));
+	        avatarTop.add(selector);
+	        avatarTop.add(Box.createVerticalStrut(12));
 
-			// 성별
-			c.gridx = 0;
-			c.gridy = row;
-			form.add(new JLabel("성별"), c);
-			c.gridx = 1;
-			form.add(cbGender, c);
-			row++;
+	        add(avatarTop, BorderLayout.NORTH);
 
-			// 나이
-			c.gridx = 0;
-			c.gridy = row;
-			form.add(new JLabel("나이"), c);
-			c.gridx = 1;
-			form.add(spAge, c);
-			row++;
+	        // ---------------------------
+	        // 2) 중앙 입력 폼 (2열 GridLayout)
+	        // ---------------------------
+	        JPanel form = new JPanel(new GridLayout(5, 2, 10, 10));
+	        form.setOpaque(false);
 
-			add(form, BorderLayout.CENTER);
+	        tfId.setEditable(false);
 
-			// 버튼 영역
-			JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-			buttons.setOpaque(false); // 배경색 적용을 위해 투명하게 설정
-			JButton btnOk = new JButton("저장");
-			JButton btnCancel = new JButton("취소");
+	        form.add(label("아이디"));
+	        form.add(tfId);
 
-			// 버튼 디자인 적용
-			btnOk.setBackground(color4);
-			btnOk.setForeground(Color.WHITE);
-			btnCancel.setBackground(subtleBorder);
+	        form.add(label("닉네임"));
+	        form.add(tfUserName);
 
-			buttons.add(btnCancel);
-			buttons.add(btnOk);
-			add(buttons, BorderLayout.SOUTH);
+	        form.add(label("MBTI"));
+	        form.add(tfMbti);
 
-			initFields();
+	        form.add(label("성별"));
+	        form.add(cbGender);
 
-			btnCancel.addActionListener(e -> dispose());
-			btnOk.addActionListener(e -> {
-				applyToUser();
-				try {
-					String token = mainApp.getJwtToken();
-					String json = buildUpdateJson(user);
-					String path = "/users/" + user.getId();
-					ApiClient.HttpResult res = ApiClient.put(path, json, token);
+	        form.add(label("나이"));
+	        form.add(spAge);
 
-					if (!res.isOk()) {
-						JOptionPane.showMessageDialog(this, "서버 저장 실패: " + res.code + "\n" + res.body);
-					} else {
-						JOptionPane.showMessageDialog(this, "프로필이 저장되었습니다.");
-					}
-				} catch (Exception ex) {
-					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
-				}
+	        add(form, BorderLayout.CENTER);
 
-				dispose();
-			});
+	        // ---------------------------
+	        // 3) 하단 버튼
+	        // ---------------------------
+	        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+	        btnPanel.setOpaque(false);
 
-			pack();
-			setResizable(false);
-		}
+	        JButton cancel = new JButton("취소");
+	        JButton save = new JButton("저장");
 
-		// User -> 폼 채우기 (기존 로직 유지)
-		private void initFields() {
-			tfId.setText(user.getId());
+	        cancel.setBackground(new Color(200, 200, 200));
+	        save.setBackground(new Color(190, 150, 210));
+	        save.setForeground(Color.WHITE);
 
-			tfUserName.setText(user.getUserName());
+	        cancel.setPreferredSize(new Dimension(90, 32));
+	        save.setPreferredSize(new Dimension(90, 32));
 
-			if (user.getMbti() != null && !user.getMbti().isEmpty()) {
-				StringBuilder sb = new StringBuilder();
-				String[] keys = { "EI", "SN", "TF", "JP" };
-				for (String k : keys) {
-					String v = user.getMbti().get(k);
-					if (v != null)
-						sb.append(v);
-				}
-				tfMbti.setText(sb.toString());
-			}
+	        btnPanel.add(cancel);
+	        btnPanel.add(save);
 
-			String g = user.getGender();
-			if (g != null && g.toLowerCase().startsWith("m"))
-				cbGender.setSelectedItem("남자");
-			else if (g != null && g.toLowerCase().startsWith("f"))
-				cbGender.setSelectedItem("여자");
+	        add(btnPanel, BorderLayout.SOUTH);
 
-			if (user.getAge() != null)
-				spAge.setValue(user.getAge());
-		}
+	        cancel.addActionListener(e -> dispose());
+	        save.addActionListener(e -> onSave());
 
-		// 폼 -> User 반영 (기존 로직 유지)
-		private void applyToUser() {
-			user.setUserName(tfUserName.getText().trim());
+	        initFields();
 
-			String genderKor = (String) cbGender.getSelectedItem();
-			if ("남자".equals(genderKor))
-				user.setGender("m");
-			else if ("여자".equals(genderKor))
-				user.setGender("f");
+	        pack();
+	        setResizable(false);
+	    }
 
-			user.setAge((Integer) spAge.getValue());
+	    // ---------------------------
+	    // 라벨 생성 유틸
+	    // ---------------------------
+	    private JLabel label(String text) {
+	        JLabel l = new JLabel(text);
+	        l.setFont(new Font("맑은 고딕", Font.BOLD, 12));
+	        return l;
+	    }
 
-			String mbtiStr = tfMbti.getText().trim().toUpperCase();
-			if (mbtiStr.length() == 4) {
-				Map<String, String> mbtiMap = user.getMbti();
-				if (mbtiMap == null)
-					mbtiMap = new HashMap<>();
+	    // ---------------------------
+	    // 아바타 선택 UI
+	    // ---------------------------
+	    private JPanel buildAvatarSelector() {
 
-				mbtiMap.put("EI", String.valueOf(mbtiStr.charAt(0)));
-				mbtiMap.put("SN", String.valueOf(mbtiStr.charAt(1)));
-				mbtiMap.put("TF", String.valueOf(mbtiStr.charAt(2)));
-				mbtiMap.put("JP", String.valueOf(mbtiStr.charAt(3)));
+	        JPanel box = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+	        box.setOpaque(false);
 
-				user.setMbti(mbtiMap);
-			}
-		}
+	        ButtonGroup group = new ButtonGroup();
 
-		// User -> 서버로 보낼 JSON 문자열 (기존 로직 유지)
-		private String buildUpdateJson(User u) {
-			StringBuilder sb = new StringBuilder();
-			sb.append("{");
+	        for (int i = 1; i <= 5; i++) {
+	            final int num = i;
 
-			// userName (닉네임)
-			sb.append("\"userName\":\"").append(u.getUserName() == null ? "" : u.getUserName()).append("\",");
+	            String path = "/images/profile" + num + ".png";
+	            ImageIcon icon;
 
-			// gender
-			sb.append("\"gender\":\"").append(u.getGender() == null ? "" : u.getGender()).append("\",");
+	            URL url = getClass().getResource(path);
+	            if (url != null) {
+	                Image img = new ImageIcon(url).getImage()
+	                        .getScaledInstance(60, 60, Image.SCALE_SMOOTH);
+	                icon = new ImageIcon(img);
+	            } else {
+	                icon = new ImageIcon();
+	            }
 
-			// age
-			if (u.getAge() == null) {
-				sb.append("\"age\":null,");
-			} else {
-				sb.append("\"age\":").append(u.getAge()).append(",");
-			}
+	            JToggleButton btn = new JToggleButton(icon);
+	            btn.setPreferredSize(new Dimension(65, 65));
+	            btn.setFocusPainted(false);
+	            btn.setBackground(Color.WHITE);
+	            btn.setBorder(new LineBorder(Color.LIGHT_GRAY, 2));
+	            btn.setContentAreaFilled(true);
 
-			// mbti
-			Map<String, String> mbti = u.getMbti();
-			if (mbti == null)
-				mbti = new HashMap<>();
+	            if (num == selectedAvatar) {
+	                btn.setSelected(true);
+	                btn.setBorder(new LineBorder(new Color(255, 128, 128), 3));
+	                btn.setBackground(new Color(255, 240, 240));
+	            }
 
-			sb.append("\"mbti\":{");
-			sb.append("\"EI\":\"").append(mbti.getOrDefault("EI", "")).append("\",");
-			sb.append("\"SN\":\"").append(mbti.getOrDefault("SN", "")).append("\",");
-			sb.append("\"TF\":\"").append(mbti.getOrDefault("TF", "")).append("\",");
-			sb.append("\"JP\":\"").append(mbti.getOrDefault("JP", "")).append("\"");
-			sb.append("}");
+	            btn.addActionListener(e -> {
+	                selectedAvatar = num;
 
-			sb.append("}");
-			return sb.toString();
-		}
+	                for (Component c : box.getComponents()) {
+	                    if (c instanceof JToggleButton b) {
+	                        if (b == btn) {
+	                            b.setBorder(new LineBorder(new Color(255, 128, 128), 3));
+	                            b.setBackground(new Color(255, 240, 240));
+	                        } else {
+	                            b.setBorder(new LineBorder(Color.LIGHT_GRAY, 2));
+	                            b.setBackground(Color.WHITE);
+	                        }
+	                    }
+	                }
+	            });
+
+	            group.add(btn);
+	            box.add(btn);
+	        }
+
+	        return box;
+	    }
+
+	    // ---------------------------
+	    // 초기 값 채우기
+	    // ---------------------------
+	    private void initFields() {
+	        tfId.setText(user.getId());
+	        tfUserName.setText(user.getUserName());
+
+	        // avatar
+	        try {
+	            selectedAvatar = Integer.parseInt(user.getProfileImg());
+	        } catch (Exception e) {
+	            selectedAvatar = 1;
+	        }
+
+	        // MBTI 맵 → 문자열
+	        if (user.getMbti() != null) {
+	            StringBuilder sb = new StringBuilder();
+	            String[] keys = {"EI", "SN", "TF", "JP"};
+	            for (String k : keys) {
+	                String v = user.getMbti().get(k);
+	                if (v != null) sb.append(v);
+	            }
+	            tfMbti.setText(sb.toString());
+	        }
+
+	        if ("m".equalsIgnoreCase(user.getGender()))
+	            cbGender.setSelectedItem("남자");
+	        else
+	            cbGender.setSelectedItem("여자");
+
+	        if (user.getAge() != null)
+	            spAge.setValue(user.getAge());
+	    }
+
+	    // ---------------------------
+	    // User 객체에 반영 + 서버 전달
+	    // ---------------------------
+	    private void onSave() {
+
+	        user.setUserName(tfUserName.getText().trim());
+	        user.setProfileImg(String.valueOf(selectedAvatar));
+
+	        String genderKor = (String) cbGender.getSelectedItem();
+	        user.setGender("남자".equals(genderKor) ? "m" : "f");
+
+	        user.setAge((Integer) spAge.getValue());
+
+	        String mbtiStr = tfMbti.getText().trim().toUpperCase();
+	        if (mbtiStr.length() == 4) {
+	            Map<String, String> map = new HashMap<>();
+	            map.put("EI", "" + mbtiStr.charAt(0));
+	            map.put("SN", "" + mbtiStr.charAt(1));
+	            map.put("TF", "" + mbtiStr.charAt(2));
+	            map.put("JP", "" + mbtiStr.charAt(3));
+	            user.setMbti(map);
+	        }
+
+	        try {
+	            String token = mainApp.getJwtToken();
+	            String path = "/api/users/" + user.getId();     // api prefix 추가
+
+
+	            JSONObject json = new JSONObject();
+	            json.put("userName", user.getUserName());
+	            json.put("gender", user.getGender());
+	            json.put("age", user.getAge());
+	            json.put("profileImg", selectedAvatar);
+
+	            JSONObject mbtiJson = new JSONObject(user.getMbti());
+	            json.put("mbti", mbtiJson);
+
+	            ApiClient.HttpResult res =
+	                    ApiClient.put(path, json.toString(), token);
+
+	            if (!res.isOk()) {
+	                JOptionPane.showMessageDialog(this, "서버 저장 실패");
+	            } else {
+	                JOptionPane.showMessageDialog(this, "프로필이 저장되었습니다.");
+	            }
+
+	        } catch (Exception ex) {
+	            ex.printStackTrace();
+	            JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
+	        }
+
+	        dispose();
+	    }
 	}
+
 }

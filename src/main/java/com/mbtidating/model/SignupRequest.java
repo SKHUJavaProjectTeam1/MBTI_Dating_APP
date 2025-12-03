@@ -40,4 +40,9 @@ public class SignupRequest {
         message = "유효하지 않은 MBTI 유형입니다."
     )
     private String mbti;
+    
+    // 🔥 추가된 프로필 이미지 번호 ("1"~"5")
+    @NotBlank(message = "프로필 이미지는 필수입니다.")
+    @Pattern(regexp = "^[1-5]$", message = "프로필 이미지는 1~5 사이여야 합니다.")
+    private String profileImg;
 }

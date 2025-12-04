@@ -220,7 +220,7 @@ public class MyMBTIView extends JPanel {
                 code.append(left ? FACETS[i][0] : FACETS[i][1]);
             }
 
-            JOptionPane.showMessageDialog(this, "당신의 MBTI는 " + code + " 입니다!");
+            JOptionPane.showMessageDialog(this, "당신의 MBTI는 " + code + " 입니다! \nMBTI를 수정해보세요!");
             mainApp.showView(MainApp.HOME);
         });
 

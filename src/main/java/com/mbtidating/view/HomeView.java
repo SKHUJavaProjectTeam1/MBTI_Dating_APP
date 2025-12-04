@@ -65,6 +65,14 @@ import org.json.JSONObject;
 public class HomeView extends JPanel {
 
 	private final MainApp mainApp;
+	
+	private static final String[] MBTI_TYPES = {
+	        "INTJ","INTP","ENTJ","ENTP",
+	        "INFJ","INFP","ENFJ","ENFP",
+	        "ISTJ","ISFJ","ESTJ","ESFJ",
+	        "ISTP","ISFP","ESTP","ESFP"
+	    };
+	
 	private static final Map<String, List<String>> mbtiIdealMatches = new HashMap<>();
 	static {
 		mbtiIdealMatches.put("INFP", Arrays.asList("ENFJ", "INFJ"));
@@ -1257,7 +1265,7 @@ public class HomeView extends JPanel {
 
 	    private final JTextField tfId = new JTextField();
 	    private final JTextField tfUserName = new JTextField();
-	    private final JTextField tfMbti = new JTextField();
+	    private final JComboBox<String> cbMbti = new JComboBox<>(MBTI_TYPES);
 	    private int selectedAvatar = 1;
 
 	    private final JComboBox<String> cbGender = new JComboBox<>(new String[]{"남자", "여자"});
@@ -1307,7 +1315,7 @@ public class HomeView extends JPanel {
 	        form.add(tfUserName);
 
 	        form.add(label("MBTI"));
-	        form.add(tfMbti);
+	        form.add(cbMbti);
 
 	        form.add(label("성별"));
 	        form.add(cbGender);
@@ -1439,7 +1447,10 @@ public class HomeView extends JPanel {
 	                String v = user.getMbti().get(k);
 	                if (v != null) sb.append(v);
 	            }
-	            tfMbti.setText(sb.toString());
+	            String mbtiStr = sb.toString();
+	            if(!mbtiStr.isEmpty()) {
+	            	 cbMbti.setSelectedItem(mbtiStr);   
+	            }
 	        }
 
 	        if ("m".equalsIgnoreCase(user.getGender()))
@@ -1464,8 +1475,8 @@ public class HomeView extends JPanel {
 
 	        user.setAge((Integer) spAge.getValue());
 
-	        String mbtiStr = tfMbti.getText().trim().toUpperCase();
-	        if (mbtiStr.length() == 4) {
+	        String mbtiStr = (String) cbMbti.getSelectedItem();
+	        if (mbtiStr != null && mbtiStr.length() == 4) {
 	            Map<String, String> map = new HashMap<>();
 	            map.put("EI", "" + mbtiStr.charAt(0));
 	            map.put("SN", "" + mbtiStr.charAt(1));

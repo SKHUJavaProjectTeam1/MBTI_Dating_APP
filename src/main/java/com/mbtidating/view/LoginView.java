@@ -103,6 +103,9 @@ public class LoginView extends JPanel {
         p.add(btnLogin, gc);
 
         btnLogin.addActionListener(e -> doLogin());
+        
+        tfId.addActionListener(e -> doLogin());
+        tfPw.addActionListener(e -> doLogin());
         return p;
     }
 

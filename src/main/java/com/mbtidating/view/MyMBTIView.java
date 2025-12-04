@@ -4,24 +4,31 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.*;
-import java.util.function.Consumer;
 
 public class MyMBTIView extends JPanel {
 
     private final MainApp mainApp;
-    private final Color SelecColor = new Color(255, 189, 189); // 분홍색
+
+    // 🎨 컬러 팔레트
+    private final Color BG_LAVENDER = new Color(248, 245, 255);     // 전체 배경 연보라
+    private final Color CARD_BG     = new Color(255, 250, 254);     // 질문 카드 배경
+    private final Color CARD_BORDER = new Color(210, 180, 230);     // 카드 테두리 라벤더
+    private final Color BTN_NORMAL  = new Color(255, 245, 248);     // 선택지 기본 배경 (로즈쿼츠 톤)
+    private final Color BTN_SELECTED= new Color(242, 210, 255);     // 선택된 버튼 배경 (연보라 + 핑크)
+    private final Color BTN_BORDER  = new Color(205, 175, 220);     // 선택 박스 테두리
+    private final Color TITLE_COLOR = new Color(120, 90, 150);
 
     private static final String[] QUESTIONS = {
-            "당신은 어떤 성격입니까? (I / E)",
-            "당신은 어떤 성향입니까? (S / N)",
-            "당신은 어떤 소통을 선호하나요? (F / T)",
-            "당신은 어떤 생활방식을 선호하나요? (J / P)"
+            "어떤 환경에서 더 편안함과 활력을 느끼나요?",
+            "당신은 어떤 사고방식을 지향하나요?",
+            "당신은 어떤 소통을 선호하나요?",
+            "당신은 어떤 생활방식을 선호하나요?"
     };
     private static final String[][] CHOICES = {
-            {"내향적인 성격", "외향적인 성격"},
-            {"현실적인 성향", "직관적인 성향"},
-            {"공감하는 소통", "논리적인 소통"},
-            {"계획적인 생활방식", "즉흥적인 생활방식"}
+            {"차분한 개인공간(I)", "활기있는 사회적 환경(E)"},
+            {"현실적인 사고방식(S)", "추상적인 사고방식(N)"},
+            {"공감하는 소통(F)", "논리적인 소통(T)"},
+            {"계획적인 생활방식(J)", "즉흥적인 생활방식(P)"}
     };
     private static final String[][] FACETS = {
             {"I", "E"}, {"S", "N"}, {"F", "T"}, {"J", "P"}
@@ -37,7 +44,7 @@ public class MyMBTIView extends JPanel {
 
         setLayout(new BorderLayout());
         setBorder(new EmptyBorder(12, 20, 12, 20));
-        setBackground(Color.WHITE);
+        setBackground(BG_LAVENDER);
 
         add(buildHeader(), BorderLayout.NORTH);
         add(buildCenter(), BorderLayout.CENTER);
@@ -46,8 +53,9 @@ public class MyMBTIView extends JPanel {
 
     private JComponent buildHeader() {
         JLabel title = new JLabel("나의 성향을 선택해주세요!", SwingConstants.CENTER);
-        title.setBorder(new EmptyBorder(18, 0, 6, 0));
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        title.setBorder(new EmptyBorder(18, 0, 10, 0));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
+        title.setForeground(TITLE_COLOR);
         return title;
     }
 
@@ -60,31 +68,41 @@ public class MyMBTIView extends JPanel {
         for (int i = 0; i < 4; i++) {
             box.add(questionBlock(i));
             if (i < 3)
-                box.add(Box.createVerticalStrut(12));
+                box.add(Box.createVerticalStrut(16));
         }
-        return new JScrollPane(box) {{
-            setBorder(null);
-            getViewport().setBackground(Color.WHITE);
-        }};
+
+        JScrollPane sp = new JScrollPane(box);
+        sp.setBorder(null);
+        sp.getViewport().setBackground(BG_LAVENDER);
+        sp.setBackground(BG_LAVENDER);
+        return sp;
     }
 
     private JComponent questionBlock(int idx) {
-        JLabel q = new JLabel("• " + QUESTIONS[idx], SwingConstants.LEFT);
-        q.setBorder(new EmptyBorder(4, 4, 8, 4));
-        q.setFont(q.getFont().deriveFont(Font.BOLD));
+        // 질문 라벨 (가운데 정렬 + 폰트 크게)
+        JLabel q = new JLabel(QUESTIONS[idx], SwingConstants.CENTER);
+        q.setBorder(new EmptyBorder(6, 4, 10, 4));
+        q.setFont(q.getFont().deriveFont(Font.BOLD, 20f));
+        q.setForeground(TITLE_COLOR);
 
         leftBtns[idx] = makeChoiceButton(CHOICES[idx][0]);
         rightBtns[idx] = makeChoiceButton(CHOICES[idx][1]);
+
+        // 기본 배경 색
+        leftBtns[idx].setBackground(BTN_NORMAL);
+        rightBtns[idx].setBackground(BTN_NORMAL);
 
         groups[idx] = new ButtonGroup();
         groups[idx].add(leftBtns[idx]);
         groups[idx].add(rightBtns[idx]);
 
+        // 가운데 세로 구분선
         JSeparator sep = new JSeparator(SwingConstants.VERTICAL);
         sep.setPreferredSize(new Dimension(1, 160));
-        sep.setForeground(new Color(210, 210, 210));
+        sep.setForeground(new Color(215, 205, 230));
 
         JPanel centerRow = new JPanel(new GridBagLayout());
+        centerRow.setOpaque(false);
         GridBagConstraints gc = new GridBagConstraints();
         gc.gridy = 0;
         gc.fill = GridBagConstraints.BOTH;
@@ -97,36 +115,80 @@ public class MyMBTIView extends JPanel {
         gc.gridx = 2; gc.weightx = 1.0;
         centerRow.add(wrap(rightBtns[idx]), gc);
 
+        // 각 쌍별로 배경색 동기화 + 저장 버튼 활성화 체크
+        final int index = idx;
+        leftBtns[idx].addActionListener(e -> updateSelectionColors(index));
+        rightBtns[idx].addActionListener(e -> updateSelectionColors(index));
+
         JPanel block = new JPanel(new BorderLayout());
         block.setBorder(new CompoundBorder(
-                new LineBorder(new Color(145, 78, 78), 1, true),
+                new LineBorder(CARD_BORDER, 1, true),
                 new EmptyBorder(8, 8, 12, 8)
         ));
+        block.setBackground(CARD_BG);
+        block.setOpaque(true);
+
         block.add(q, BorderLayout.NORTH);
         block.add(centerRow, BorderLayout.CENTER);
         return block;
     }
 
+    private void updateSelectionColors(int idx) {
+        JToggleButton left = leftBtns[idx];
+        JToggleButton right = rightBtns[idx];
+
+        if (left.isSelected()) {
+            left.setBackground(BTN_SELECTED);
+        } else {
+            left.setBackground(BTN_NORMAL);
+        }
+
+        if (right.isSelected()) {
+            right.setBackground(BTN_SELECTED);
+        } else {
+            right.setBackground(BTN_NORMAL);
+        }
+
+        saveBtn.setEnabled(allAnswered());
+    }
+
     private JToggleButton makeChoiceButton(String text) {
-        JToggleButton b = new JToggleButton(text);
+        // 둥근 모서리 커스텀 토글 버튼
+        JToggleButton b = new JToggleButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                int w = getWidth();
+                int h = getHeight();
+                int arc = 28;
+
+                // 배경
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, w - 1, h - 1, arc, arc);
+
+                // 테두리
+                g2.setColor(BTN_BORDER);
+                g2.drawRoundRect(0, 0, w - 1, h - 1, arc, arc);
+
+                g2.dispose();
+
+                // 텍스트/아이콘은 기본 LAF로 그리게
+                super.paintComponent(g);
+            }
+        };
+
         b.setFont(b.getFont().deriveFont(Font.PLAIN, 18f));
         b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.setBackground(Color.WHITE);
-        b.setOpaque(true);
-        b.setBorder(new CompoundBorder(
-                new LineBorder(new Color(200, 200, 200), 1, true),
-                new EmptyBorder(26, 20, 26, 20)
-        ));
+        b.setContentAreaFilled(false);
+        b.setOpaque(false);
+        b.setBorder(new EmptyBorder(26, 20, 26, 20));
         b.setHorizontalAlignment(SwingConstants.CENTER);
         b.setPreferredSize(new Dimension(300, 160));
         b.setUI(new BasicButtonUI());
 
-        b.addActionListener(e -> {
-            if (b.isSelected())
-                b.setBackground(SelecColor);
-            saveBtn.setEnabled(allAnswered());
-        });
         return b;
     }
 
@@ -140,6 +202,8 @@ public class MyMBTIView extends JPanel {
 
     private JComponent buildFooter() {
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 12));
+        bottom.setOpaque(false);
+
         JButton cancel = new JButton("닫기");
         styleBtn(saveBtn, true);
         styleBtn(cancel, false);
@@ -156,7 +220,6 @@ public class MyMBTIView extends JPanel {
                 code.append(left ? FACETS[i][0] : FACETS[i][1]);
             }
 
-            // ✅ MBTI 결과 표시 및 다음 화면 이동
             JOptionPane.showMessageDialog(this, "당신의 MBTI는 " + code + " 입니다!");
             mainApp.showView(MainApp.HOME);
         });
@@ -170,7 +233,7 @@ public class MyMBTIView extends JPanel {
 
     private boolean allAnswered() {
         for (ButtonGroup g : groups) {
-            if (g.getSelection() == null)
+            if (g == null || g.getSelection() == null)
                 return false;
         }
         return true;
@@ -179,9 +242,11 @@ public class MyMBTIView extends JPanel {
     private void styleBtn(JButton b, boolean primary) {
         b.setFocusPainted(false);
         b.setContentAreaFilled(true);
-        b.setBackground(primary ? new Color(245, 245, 245) : Color.WHITE);
+        b.setOpaque(true);
+        b.setBackground(primary ? new Color(255, 220, 235) : Color.WHITE);
+        b.setForeground(new Color(80, 60, 100));
         b.setBorder(new CompoundBorder(
-                new LineBorder(new Color(190, 190, 190), 1, true),
+                new LineBorder(new Color(200, 180, 210), 1, true),
                 new EmptyBorder(8, 18, 8, 18)
         ));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));

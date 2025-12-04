@@ -1,7 +1,11 @@
 package com.mbtidating.view;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.CardLayout;
+
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+
 import com.mbtidating.dto.User;
 
 public class MainApp extends JFrame {
@@ -103,6 +107,21 @@ public class MainApp extends JFrame {
     }
     public String getLoggedInUserId() {
         return (loggedInUser != null) ? loggedInUser.getId() : null;
+    }
+    
+    public void logout() {
+        // 1) 클라이언트 쪽 상태 초기화
+        this.jwtToken = null;
+        this.loggedInUser = null;
+        this.matched = false;
+
+        // 2) 로그인 화면 입력값 비우기
+        if (loginView != null) {
+            loginView.clearFields();
+        }
+
+        // 3) 로그인 화면으로 전환
+        showView(LOGIN);
     }
 
 

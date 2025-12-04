@@ -343,8 +343,27 @@ public class HomeView extends JPanel {
 		nav.setBackground(color1);
 		header.add(nav, BorderLayout.SOUTH);
 
-		// 액션 리스너는 변경 없이 유지
-		btnLogout.addActionListener(e -> mainApp.showView(MainApp.LOGIN));
+		btnLogout.addActionListener(e -> {
+		    String token = mainApp.getJwtToken();
+
+		    if (token != null && !token.isEmpty()) {
+		        try {
+		            // 서버에 로그아웃 요청 (Authorization 헤더에 토큰 넣어서)
+		            ApiClient.HttpResult res =
+		                    ApiClient.post("/api/users/logout", "{}", token);
+
+		            if (!res.isOk()) {
+		                System.err.println("로그아웃 API 실패: " + res.code + " / " + res.body);
+		            }
+		        } catch (Exception ex) {
+		            ex.printStackTrace();
+		        }
+		    }
+
+		    // 클라이언트 상태 정리 (jwt, 로그인 유저, 입력칸 등) — 이전에 말한 logout() 사용
+		    mainApp.logout();
+		});
+
 		btnGuide.addActionListener(e -> mainApp.showView(MainApp.MBTI_INFO));
 		btnMyMBTI.addActionListener(e -> mainApp.showView(MainApp.MYMBTI));
 		btnChat.addActionListener(e -> {

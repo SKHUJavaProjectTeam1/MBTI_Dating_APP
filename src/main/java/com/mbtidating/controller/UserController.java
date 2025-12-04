@@ -1,7 +1,6 @@
 package com.mbtidating.controller;
 
 import java.time.Instant;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -344,6 +344,38 @@ public class UserController {
         }
 
         return userRepository.save(user);
+    }
+    
+ // 🔹 로그아웃: Authorization 헤더에 들어있는 Access 토큰 사용
+    @PostMapping("/logout")
+    public Map<String, String> logout(@RequestHeader("Authorization") String authHeader) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authorization 헤더가 없습니다.");
+        }
+
+        String accessToken = authHeader.substring(7); // "Bearer " 이후
+
+        // 토큰에서 로그인 아이디 꺼내기 (login() 때 subject로 user.getId() 넣었으니까)
+        String loginId = JwtUtil.extractClaims(accessToken).getSubject();
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
+
+        // ✅ DB에 저장된 토큰 정보 삭제(또는 빈값으로)
+        User.Tokens tokens = user.getTokens();
+        if (tokens != null) {
+            tokens.setAccess("");
+            tokens.setRefresh("");
+            user.setTokens(tokens);
+        }
+
+        userRepository.save(user);
+
+        Map<String, String> resp = new HashMap<>();
+        resp.put("message", "logged out");
+        return resp;
     }
 
 

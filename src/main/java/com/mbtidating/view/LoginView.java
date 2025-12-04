@@ -52,6 +52,11 @@ public class LoginView extends JPanel {
         add(buildSidebar(), BorderLayout.WEST);
         add(buildContent(), BorderLayout.CENTER);
     }
+    
+    public void clearFields() {
+        tfId.setText("");
+        tfPw.setText("");
+    }
 
     private JPanel buildSidebar() {
         JPanel side = gradientPanel();

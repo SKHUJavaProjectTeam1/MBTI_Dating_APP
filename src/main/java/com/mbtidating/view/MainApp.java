@@ -1,6 +1,9 @@
 package com.mbtidating.view;
 
 import java.awt.CardLayout;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.io.InputStream;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -43,6 +46,18 @@ public class MainApp extends JFrame {
     public MainApp() {
         super("MBTI MATCH");
 
+        try {
+            InputStream is = getClass().getResourceAsStream("/fonts/SimplifyCheekDisplay.ttf");
+            Font custom = Font.createFont(Font.TRUETYPE_FONT, is);
+
+            custom = custom.deriveFont(18f); // 기본 폰트 크기 설정
+
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            ge.registerFont(custom);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1200, 760);
         setLocationRelativeTo(null);

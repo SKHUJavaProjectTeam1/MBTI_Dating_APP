@@ -12,11 +12,15 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ChatView extends JPanel {
 
@@ -63,6 +67,12 @@ public class ChatView extends JPanel {
     private String selfName;      // 내 닉네임
     private String partnerId;     // 상대 userId
     private String partnerName;   // 상대 닉네임
+    private final Map<String, String> profileCache = new HashMap<>();
+
+
+    private String partnerProfileImg;   // 상대 프로필 이미지 URL
+    private JLabel avatarLabel;         // 아바타 JLabel (필드로 승급)
+
 
     // 왼쪽 리스트용
     private final DefaultListModel<RoomItem> roomListModel = new DefaultListModel<>();
@@ -249,20 +259,67 @@ public class ChatView extends JPanel {
         }
 
         @Override
-        public Component getListCellRendererComponent(JList<? extends RoomItem> list, RoomItem value,
-                                                      int index, boolean isSelected, boolean cellHasFocus) {
+        public Component getListCellRendererComponent(
+                JList<? extends RoomItem> list,
+                RoomItem value,
+                int index,
+                boolean isSelected,
+                boolean cellHasFocus) {
+
             this.isSelected = isSelected;
 
-            String title = (value.partnerName != null) ? value.partnerName : "(상대 없음)";
-            nameLabel.setText(title);
-
-            String firstLetter = (!title.isEmpty()) ? title.substring(0, 1) : "?";
-            iconLabel.setText(firstLetter);
-
+            nameLabel.setText(value.partnerName);
             timeLabel.setText(getRelativeTime(value.lastMessageTime));
+
+            // ================================
+            // 1) 프로필 이미지 숫자 확보
+            // ================================
+            String imgNum;
+
+            if (value.profileImg != null) {
+                imgNum = value.profileImg;
+            } else if (profileCache.containsKey(value.partnerId)) {
+                imgNum = profileCache.get(value.partnerId);
+            } else {
+                // 비동기 로딩
+                imgNum = "1";
+                new Thread(() -> {
+                    try {
+                        ApiClient.HttpResult res = ApiClient.get("/api/users/" + value.partnerId);
+                        if (res.isOk()) {
+                            JSONObject obj = new JSONObject(res.body);
+                            String img = obj.optString("profileImg", "1");
+
+                            profileCache.put(value.partnerId, img);
+                            value.profileImg = img;
+
+                            SwingUtilities.invokeLater(list::repaint);
+                        }
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                }).start();
+            }
+
+            // ======================================
+            // 2) 프로필 이미지 실제로 적용하기 (원형)
+            // ======================================
+            String imgPath = "/images/profile" + imgNum + ".png";
+            URL url = getClass().getResource(imgPath);
+
+            if (url != null) {
+                Image raw = new ImageIcon(url).getImage();
+                Image rounded = makeRoundedImage(raw, 40);
+                iconLabel.setIcon(new ImageIcon(rounded));
+                iconLabel.setText("");
+            } else {
+                // 이미지가 없을 때 → 첫 글자 표시
+                iconLabel.setIcon(null);
+                iconLabel.setText(value.partnerName.substring(0, 1));
+            }
 
             return this;
         }
+
+
 
         @Override
         protected void paintComponent(Graphics g) {
@@ -340,12 +397,14 @@ public class ChatView extends JPanel {
         final String partnerId;
         final String partnerName;
         final String lastMessageTime;
+        String profileImg; // ← final 제거
 
-        RoomItem(String roomId, String partnerId, String partnerName, String lastMessageTime) {
+        RoomItem(String roomId, String partnerId, String partnerName, String lastMessageTime, String profileImg) {
             this.roomId = roomId;
             this.partnerId = partnerId;
             this.partnerName = partnerName;
             this.lastMessageTime = lastMessageTime;
+            this.profileImg = profileImg;
         }
 
         @Override
@@ -353,6 +412,7 @@ public class ChatView extends JPanel {
             return partnerName != null ? partnerName : "(상대 없음)";
         }
     }
+
 
     // ============================ 목록 갱신 ============================
 
@@ -375,26 +435,29 @@ public class ChatView extends JPanel {
             roomListModel.clear();
 
             for (int i = 0; i < arr.length(); i++) {
+
                 JSONObject room = new JSONObject(arr.get(i).toString());
                 String rId = room.getString("roomId");
 
                 String pId = null;
                 String pName = null;
+                String pImg = "1"; // 기본 이미지
 
+                // 🔥 participants 에서 partner 정보 + profileImg 모두 찾기
                 if (room.has("participants")) {
                     JSONArray ps = room.getJSONArray("participants");
+
                     for (int j = 0; j < ps.length(); j++) {
                         JSONObject p = ps.getJSONObject(j);
+
                         String uid = p.optString("userId", "");
                         String uname = p.optString("userName", "");
+                        String img = p.optString("profileImg", "1");
 
                         if (!uid.isEmpty() && !uid.equals(userId)) {
                             pId = uid;
-                            if (uname != null && !uname.isEmpty()) {
-                                pName = uname;
-                            } else {
-                                pName = uid;  // 닉네임이 없으면 userId라도 표시
-                            }
+                            pName = (!uname.isEmpty()) ? uname : uid;
+                            pImg = img;   // 🔥 프로필 이미지 가져옴
                             break;
                         }
                     }
@@ -406,7 +469,8 @@ public class ChatView extends JPanel {
 
                 String time = room.optString("lastMessageAt", "");
 
-                RoomItem item = new RoomItem(rId, pId, pName, time);
+                // 🔥 RoomItem 생성자에 이미지 포함
+                RoomItem item = new RoomItem(rId, pId, pName, time, null);
                 roomListModel.addElement(item);
             }
 
@@ -415,7 +479,24 @@ public class ChatView extends JPanel {
         }
     }
 
+
     // ============================ 오른쪽: 채팅 화면 ============================
+    private Image makeRoundedImage(Image img, int size) {
+
+        BufferedImage output = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = output.createGraphics();
+
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 원형 clip 생성
+        g2.setClip(new java.awt.geom.Ellipse2D.Float(0, 0, size, size));
+
+        // 이미지를 원 안에 그리기
+        g2.drawImage(img, 0, 0, size, size, null);
+
+        g2.dispose();
+        return output;
+    }
 
     private JPanel buildRightPanel() {
         JPanel rightPanel = new JPanel(new BorderLayout());
@@ -431,13 +512,15 @@ public class ChatView extends JPanel {
         topBox.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
         topBox.setPreferredSize(new Dimension(200, 80));
 
-        JLabel avatar = new JLabel();
-        avatar.setPreferredSize(new Dimension(48, 48));
-        avatar.setIcon(new ImageIcon(
-                new ImageIcon("images/default_profile.png")
+        avatarLabel = new JLabel();
+        avatarLabel.setPreferredSize(new Dimension(48, 48));
+        avatarLabel.setIcon(new ImageIcon(
+                new ImageIcon(getClass().getResource("/images/profile1.png"))
                         .getImage()
                         .getScaledInstance(48, 48, Image.SCALE_SMOOTH)
         ));
+
+
 
         // ✅ topNameLabel 사용 (이제 여기서 실제로 붙인다)
         topNameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
@@ -446,7 +529,7 @@ public class ChatView extends JPanel {
 
         JPanel leftProfile = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         leftProfile.setOpaque(false);
-        leftProfile.add(avatar);
+        leftProfile.add(avatarLabel);
         leftProfile.add(topNameLabel);
 
         PrettyButton homeButton = new PrettyButton("홈으로");
@@ -517,6 +600,7 @@ public class ChatView extends JPanel {
             refreshMessages();
             loadChatHistory();
 
+            // WebSocket 설정
             String encodedUserId = URLEncoder.encode(selfId, StandardCharsets.UTF_8.toString());
             String encodedUserName = URLEncoder.encode(selfName, StandardCharsets.UTF_8.toString());
 
@@ -529,14 +613,11 @@ public class ChatView extends JPanel {
             socketClient.onJson(json -> SwingUtilities.invokeLater(() -> receiveJson(json)));
             socketClient.connect();
 
-            // ✅ 상단 이름 라벨 안전하게 세팅
-            String displayName = partnerName;
-            if (displayName == null || displayName.trim().isEmpty()) {
-                displayName = (partnerId != null && !partnerId.isEmpty())
-                        ? partnerId
-                        : "(상대 없음)";
-            }
-            topNameLabel.setText("상대: " + displayName);
+            // 상단 이름 표시
+            topNameLabel.setText("상대: " + partnerName);
+
+            // 🔥 상대방 프로필 이미지 로드
+            loadPartnerProfile(partnerId);
 
             addSystemMessage("채팅방에 입장했습니다.");
 
@@ -544,6 +625,48 @@ public class ChatView extends JPanel {
             e.printStackTrace();
         }
     }
+
+    private void loadPartnerProfile(String partnerId) {
+        new Thread(() -> {
+            try {
+                String token = mainApp.getJwtToken();
+                ApiClient.HttpResult res = ApiClient.get("/api/users/" + partnerId, token);
+
+                if (!res.isOk()) {
+                    System.out.println("상대 프로필 조회 실패: " + res.body);
+                    return;
+                }
+
+                JSONObject obj = new JSONObject(res.body);
+
+                // 숫자 문자열 (1~n)
+                String profileNum = obj.optString("profileImg", "1");
+
+                String imgPath = "/images/profile" + profileNum + ".png";
+
+                // 🔥 여기가 수정된 핵심
+                URL url = getClass().getResource(imgPath);
+
+                if (url == null) {
+                    System.err.println("⚠ 프로필 이미지 리소스 없음: " + imgPath);
+                    return;
+                }
+
+                ImageIcon icon = new ImageIcon(
+                        new ImageIcon(url)
+                                .getImage()
+                                .getScaledInstance(48, 48, Image.SCALE_SMOOTH)
+                );
+
+                SwingUtilities.invokeLater(() -> avatarLabel.setIcon(icon));
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
 
     // ============================ 이전 채팅 내역 불러오기 ============================
 

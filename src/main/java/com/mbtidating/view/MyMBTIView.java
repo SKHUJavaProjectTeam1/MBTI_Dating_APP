@@ -43,7 +43,7 @@ public class MyMBTIView extends JPanel {
     private final ButtonGroup[] groups = new ButtonGroup[4];
     private final JToggleButton[] leftBtns = new JToggleButton[4];
     private final JToggleButton[] rightBtns = new JToggleButton[4];
-    private final JButton saveBtn = new JButton("저장");
+    private final JButton saveBtn = new RoundButton("저장");
 
     public MyMBTIView(MainApp mainApp) {
         this.mainApp = mainApp;
@@ -210,7 +210,7 @@ public class MyMBTIView extends JPanel {
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 12));
         bottom.setOpaque(false);
 
-        JButton cancel = new JButton("닫기");
+        JButton cancel = new RoundButton("닫기");
         styleBtn(saveBtn, true);
         styleBtn(cancel, false);
         saveBtn.setEnabled(false);
@@ -293,15 +293,47 @@ public class MyMBTIView extends JPanel {
     }
 
     private void styleBtn(JButton b, boolean primary) {
-        b.setFocusPainted(false);
-        b.setContentAreaFilled(true);
-        b.setOpaque(true);
-        b.setBackground(primary ? new Color(255, 220, 235) : Color.WHITE);
-        b.setForeground(new Color(80, 60, 100));
-        b.setBorder(new CompoundBorder(
-                new LineBorder(new Color(200, 180, 210), 1, true),
-                new EmptyBorder(8, 18, 8, 18)
-        ));
+
+        if (primary) {
+            b.setBackground(new Color(210, 180, 255)); // saveBtn 보라
+            b.setForeground(Color.WHITE);
+        } else {
+            b.setBackground(Color.WHITE);              // cancel 흰색
+            b.setForeground(new Color(80, 40, 120));
+        }
+
+        b.setPreferredSize(new Dimension(120, 45));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
+    class RoundButton extends JButton {
+        public RoundButton(String text) {
+            super(text);
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth();
+            int h = getHeight();
+            int arc = 26;
+
+            // 배경색
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, w, h, arc, arc);
+
+            // 테두리
+            g2.setColor(new Color(180, 140, 220));
+            g2.drawRoundRect(0, 0, w - 1, h - 1, arc, arc);
+
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+
 }

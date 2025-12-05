@@ -116,6 +116,14 @@ public class UserController {
 
         return userRepository.save(user);
     }
+    
+    @GetMapping("/{id}")
+    public User getUserById(@PathVariable String id) {
+        return userRepository.findByLoginId(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found"));
+    }
+
 
     @GetMapping("/recommend/{userId}")
     public List<User> recommend(@PathVariable String userId) {

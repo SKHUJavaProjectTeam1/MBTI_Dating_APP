@@ -20,6 +20,9 @@ import java.time.temporal.ChronoUnit;
 
 public class ChatView extends JPanel {
 
+    // 🔥 상단 상대방 프로필 이미지를 넣을 라벨
+    private JLabel avatarLabel;
+
     // ========================== 공통 예쁜 버튼 ==========================
     static class PrettyButton extends JButton {
         public PrettyButton(String text) {
@@ -78,7 +81,7 @@ public class ChatView extends JPanel {
     private final JTextField inputField = new JTextField();
     // (지금은 PrettyButton을 쓰니까 sendButton은 안 써도 됨. 남겨두기만 함)
     private final JButton sendButton = new JButton();
-    private final JLabel topNameLabel = new JLabel("상대: -", SwingConstants.LEFT);  // ✅ 상단 이름 라벨
+    private final JLabel topNameLabel = new JLabel("상대: -", SwingConstants.LEFT);  // 상단 이름 라벨
 
     public ChatView(MainApp mainApp) {
         this.mainApp = mainApp;
@@ -162,24 +165,24 @@ public class ChatView extends JPanel {
         bottom.setOpaque(false);
         bottom.add(refreshBtn);
         leftPanel.add(bottom, BorderLayout.SOUTH);
-        
+
         JButton deleteBtn = new JButton("선택한 방 삭제");
         deleteBtn.setBackground(new Color(255, 200, 200));
         deleteBtn.setFocusPainted(false);
 
         deleteBtn.addActionListener(e -> {
             RoomItem item = roomList.getSelectedValue();
-            
+
             if (item == null) {
                 JOptionPane.showMessageDialog(this, "삭제할 방을 선택하세요!");
                 return;
             }
 
             int confirm = JOptionPane.showConfirmDialog(
-                this, 
-                "정말 삭제할까요?", 
-                "채팅방 삭제", 
-                JOptionPane.YES_NO_OPTION
+                    this,
+                    "정말 삭제할까요?",
+                    "채팅방 삭제",
+                    JOptionPane.YES_NO_OPTION
             );
 
             if (confirm != JOptionPane.YES_OPTION) return;
@@ -190,10 +193,9 @@ public class ChatView extends JPanel {
         bottom.add(Box.createVerticalStrut(10));
         bottom.add(deleteBtn);
 
-
         return leftPanel;
     }
-    
+
     private void deleteChatRoom(String roomId) {
         try {
             User me = mainApp.getLoggedInUser();
@@ -216,7 +218,6 @@ public class ChatView extends JPanel {
             JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
         }
     }
-
 
     // ============================ 리스트 셀 렌더러 ============================
 
@@ -422,7 +423,7 @@ public class ChatView extends JPanel {
         rightPanel.setBackground(Color.WHITE);
         rightPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // ============================ 상단 프로필 영역 ============================
+        // 상단 프로필 영역
         JPanel topBox = new GradientPanel(
                 new Color(255, 235, 240),   // 연핑크
                 new Color(210, 255, 245)    // 민트
@@ -431,22 +432,23 @@ public class ChatView extends JPanel {
         topBox.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
         topBox.setPreferredSize(new Dimension(200, 80));
 
-        JLabel avatar = new JLabel();
-        avatar.setPreferredSize(new Dimension(48, 48));
-        avatar.setIcon(new ImageIcon(
+        // 🔥 전역 avatarLabel 생성 + 기본 이미지
+        avatarLabel = new JLabel();
+        avatarLabel.setPreferredSize(new Dimension(48, 48));
+        avatarLabel.setIcon(new ImageIcon(
                 new ImageIcon("images/default_profile.png")
                         .getImage()
                         .getScaledInstance(48, 48, Image.SCALE_SMOOTH)
         ));
 
-        // ✅ topNameLabel 사용 (이제 여기서 실제로 붙인다)
+        // 이름 라벨 설정
         topNameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         topNameLabel.setForeground(new Color(60, 50, 70));
         topNameLabel.setText("상대: -");
 
         JPanel leftProfile = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         leftProfile.setOpaque(false);
-        leftProfile.add(avatar);
+        leftProfile.add(avatarLabel);
         leftProfile.add(topNameLabel);
 
         PrettyButton homeButton = new PrettyButton("홈으로");
@@ -472,7 +474,7 @@ public class ChatView extends JPanel {
         scroll.setBorder(null);
         rightPanel.add(scroll, BorderLayout.CENTER);
 
-        // ============================ 메시지 입력 영역 ============================
+        // 메시지 입력 영역
         JPanel bottomBox = new JPanel();
         bottomBox.setBackground(Color.WHITE);
         bottomBox.setLayout(new BoxLayout(bottomBox, BoxLayout.X_AXIS));
@@ -529,7 +531,10 @@ public class ChatView extends JPanel {
             socketClient.onJson(json -> SwingUtilities.invokeLater(() -> receiveJson(json)));
             socketClient.connect();
 
-            // ✅ 상단 이름 라벨 안전하게 세팅
+            // 🔥 상대 프로필 이미지 로딩
+            loadPartnerProfileImage();
+
+            // 상단 이름 라벨
             String displayName = partnerName;
             if (displayName == null || displayName.trim().isEmpty()) {
                 displayName = (partnerId != null && !partnerId.isEmpty())
@@ -549,7 +554,7 @@ public class ChatView extends JPanel {
 
     private void loadChatHistory() {
         try {
-        	ApiClient.HttpResult result = ApiClient.get("/api/chat/messages/" + roomId);
+            ApiClient.HttpResult result = ApiClient.get("/api/chat/messages/" + roomId);
 
             if (result == null || result.body == null || result.body.isEmpty()) return;
 
@@ -570,6 +575,58 @@ public class ChatView extends JPanel {
                     addOtherMessage(senderName + ": " + text);
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 🔥 상대방 프로필 이미지 로딩
+    private void loadPartnerProfileImage() {
+        // partnerId 없으면 아무 것도 안 함
+        if (partnerId == null || partnerId.isBlank()) return;
+
+        try {
+            String token = mainApp.getJwtToken();
+            // /api/users/{id} 로 유저 정보 조회
+            ApiClient.HttpResult res =
+                    ApiClient.get("/api/users/" + partnerId, token);
+
+            if (!res.isOk() || res.body == null || res.body.isBlank()) {
+                return;
+            }
+
+            JSONObject obj = new JSONObject(res.body);
+
+            // profileImg가 숫자 또는 문자열일 수 있으니 둘 다 처리
+            Object imgObj = obj.opt("profileImg");
+            String profileNum;
+
+            if (imgObj instanceof Number num) {
+                profileNum = String.valueOf(num.intValue());
+            } else {
+                profileNum = obj.optString("profileImg", "1");
+            }
+
+            // default, 빈 값 처리
+            if (profileNum == null || profileNum.isBlank() || profileNum.equals("default.jpg")) {
+                profileNum = "1";  // 최소한 1번은 나오게
+            }
+
+            // 클래스패스 기준 이미지 경로
+            String avatarPath = "/images/profile" + profileNum + ".png";
+
+            java.net.URL url = getClass().getResource(avatarPath);
+            if (url != null) {
+                Image img = new ImageIcon(url).getImage()
+                        .getScaledInstance(48, 48, Image.SCALE_SMOOTH);
+                ImageIcon icon = new ImageIcon(img);
+
+                // 상단 라벨에 이미지 세팅
+                avatarLabel.setIcon(icon);
+            } else {
+                System.out.println("⚠ 프로필 이미지 리소스를 찾을 수 없음: " + avatarPath);
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }

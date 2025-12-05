@@ -118,37 +118,95 @@
 			<artifactId>json</artifactId>
 			<version>20231013</version>
 		</dependency>
-		
+
 	</dependencies>
 
 	<build>
-    <plugins>
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <version>3.11.0</version>
-            <configuration>
-                <!-- ★ 중요: 컴파일러 설정 추가 ★ -->
-                <source>21</source>
-                <target>21</target>
-                <release>21</release>
+		<plugins>
 
-                <annotationProcessorPaths>
-                    <path>
-                        <groupId>org.projectlombok</groupId>
-                        <artifactId>lombok</artifactId>
-                        <version>1.18.32</version>
-                    </path>
-                </annotationProcessorPaths>
-            </configuration>
-        </plugin>
+			<!-- Java 컴파일러 설정 -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.11.0</version>
+				<configuration>
+					<source>21</source>
+					<target>21</target>
+					<release>21</release>
 
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-        </plugin>
-    </plugins>
-</build>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>1.18.32</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+
+
+			<!-- ============================= -->
+			<!-- 1) 클라이언트 FAT-JAR 생성 (shade) -->
+			<!-- ============================= -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.6.1</version>
+				<executions>
+					<execution>
+						<id>client-fat-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<artifactSet>
+								<excludes>
+									<!-- 서버(Spring Boot) 관련 라이브러리는 클라이언트 JAR에 포함하지 않음 -->
+									<exclude>org.springframework.boot:*</exclude>
+									<exclude>org.springframework:*:*</exclude>
+								</excludes>
+							</artifactSet>
+
+							<shadedArtifactAttached>true</shadedArtifactAttached>
+							<shadedClassifierName>client</shadedClassifierName>
+
+							<transformers>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<mainClass>com.mbtidating.ClientLauncher</mainClass>
+								</transformer>
+							</transformers>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+
+
+			<!-- ============================= -->
+			<!-- 2) 서버 FAT-JAR 생성 (Spring Boot) -->
+			<!-- ============================= -->
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<classifier>server</classifier>
+					<mainClass>com.mbtidating.ServerApplication</mainClass>
+					<skip>false</skip>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>repackage</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+		</plugins>
+	</build>
+
+
 
 
 </project>

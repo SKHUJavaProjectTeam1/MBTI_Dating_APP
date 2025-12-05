@@ -1,9 +1,15 @@
 package com.mbtidating.view;
 
+import com.mbtidating.dto.User;
+import com.mbtidating.network.ApiClient;
+import org.json.JSONObject;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MyMBTIView extends JPanel {
 
@@ -214,15 +220,62 @@ public class MyMBTIView extends JPanel {
                 JOptionPane.showMessageDialog(this, "모든 문항을 선택해 주세요.");
                 return;
             }
+
+            // 1) MBTI 코드 생성
             StringBuilder code = new StringBuilder(4);
             for (int i = 0; i < 4; i++) {
                 boolean left = leftBtns[i].isSelected();
                 code.append(left ? FACETS[i][0] : FACETS[i][1]);
             }
 
-            JOptionPane.showMessageDialog(this, "당신의 MBTI는 " + code + " 입니다! \nMBTI를 수정해보세요!");
+            String mbtiResult = code.toString();   // EX) "INFJ"
+
+            // 2) 현재 로그인 유저 가져오기
+            User user = mainApp.getLoggedInUser();
+            if (user == null) {
+                JOptionPane.showMessageDialog(this, "로그인 정보가 없습니다.");
+                return;
+            }
+
+            // 3) 문자열 MBTI → Map 변환
+            Map<String, String> mbtiMap = new HashMap<>();
+            mbtiMap.put("EI", "" + mbtiResult.charAt(0));
+            mbtiMap.put("SN", "" + mbtiResult.charAt(1));
+            mbtiMap.put("TF", "" + mbtiResult.charAt(2));
+            mbtiMap.put("JP", "" + mbtiResult.charAt(3));
+
+            user.setMbti(mbtiMap);
+
+            // 4) 서버로 업데이트 요청
+            try {
+                String token = mainApp.getJwtToken();
+
+                JSONObject json = new JSONObject();
+                json.put("userName", user.getUserName());
+                json.put("gender", user.getGender());
+                json.put("age", user.getAge());
+                json.put("profileImg", user.getProfileImg());
+                json.put("mbti", new JSONObject(mbtiMap));
+
+                ApiClient.HttpResult res =
+                        ApiClient.put("/api/users/" + user.getId(), json.toString(), token);
+
+                if (!res.isOk()) {
+                    JOptionPane.showMessageDialog(this, "서버 저장 실패: " + res.body);
+                } else {
+                    JOptionPane.showMessageDialog(this, "당신의 MBTI는 " + mbtiResult + " 입니다!\n프로필에 반영되었습니다.");
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "서버 오류: " + ex.getMessage());
+            }
+
+            // 5) HomeView로 이동하여 화면 업데이트
             mainApp.showView(MainApp.HOME);
+            mainApp.getHomeView().updateUserInfo(user);  // ← 사용자 정보 패널 즉시 갱신
         });
+
 
         cancel.addActionListener(e -> mainApp.showView(MainApp.HOME));
 

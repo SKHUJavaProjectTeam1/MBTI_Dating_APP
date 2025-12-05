@@ -103,6 +103,9 @@ public class MainApp extends JFrame {
     public MatchWaitView getMatchWaitView() { return matchWaitView; }
     public ChatView getChatView() { return chatView; }
 
+    public HomeView getHomeView() { return homeView; }
+
+
     public void setJwtToken(String token) { this.jwtToken = token; }
     public String getJwtToken() { return jwtToken; }
 

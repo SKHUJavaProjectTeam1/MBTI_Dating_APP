@@ -673,19 +673,21 @@ public class HomeView extends JPanel {
 			// 🔥 프로필 이미지 적용
 			String profileNum = user.getProfileImg();
 
-			// default면 랜덤 1번만 적용하고 user에 저장
-			if (profileNum == null || profileNum.equals("default.jpg") || profileNum.isEmpty()) {
-			    profileNum = String.valueOf(1 + (int) (Math.random() * 5));
-			    user.setProfileImg(profileNum);   // 한 번만 랜덤 적용
+			// 서버에 값이 없을 때만 안전하게 기본값 1 사용
+			if (profileNum == null || profileNum.isBlank() || profileNum.equals("default.jpg")) {
+				profileNum = "1";   // 그냥 기본 이미지 하나로 고정
 			}
-
 
 			String avatarPath = "/images/profile" + profileNum + ".png";
 
-			ImageIcon icon = new ImageIcon(new ImageIcon(getClass().getResource(avatarPath)).getImage()
-					.getScaledInstance(100, 100, Image.SCALE_SMOOTH));
+			ImageIcon icon = new ImageIcon(
+					new ImageIcon(getClass().getResource(avatarPath))
+							.getImage()
+							.getScaledInstance(100, 100, Image.SCALE_SMOOTH)
+			);
 
 			avatarLabel.setIcon(icon);
+
 
 			revalidate();
 			repaint();

@@ -172,6 +172,11 @@ public class LoginView extends JPanel {
         u.setGender(extractJsonString(body, "\"gender\":\""));
         u.setAge(extractJsonInt(body, "\"age\":"));
 
+        String profileImg = extractJsonString(body, "\"profileImg\":\"");
+        if (!profileImg.isEmpty()) {
+            u.setProfileImg(profileImg);
+        }
+
         Map<String, String> mbtiMap = new HashMap<>();
         String ei = extractJsonString(body, "\"EI\":\"");
         String sn = extractJsonString(body, "\"SN\":\"");
